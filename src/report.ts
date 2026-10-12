@@ -10,8 +10,7 @@ export function renderReport(report: Report): string {
   const lines = [
     '# PR review report', '',
     `**${report.mode.toUpperCase()} · ${report.status.toUpperCase()} · ${report.outcome}**`, '',
-    `Run: ${report.runId}`, `Provider: ${escape(report.provider.name)} (${escape(report.provider.version ?? 'unknown')})`,
-    `Model: ${escape(report.provider.model ?? 'provider default; not reported')}`, '',
+    `Run: ${report.runId}`, `Reviewers: ${report.providers.length}`, '',
     'This report covers only the supplied context. No tests were executed and no GitHub comments were posted.', '',
   ];
   if (report.snapshot) {

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { configSchema, hash, selectedReviewers, snapshotSchema, type ReviewResult } from '../src/contracts.js';
-import { parseClaudeOutput, parseGrokOutput } from '../src/native-providers.js';
+import { claudeEnvironment, parseClaudeOutput, parseGrokOutput } from '../src/native-providers.js';
 import { reviewPrompt } from '../src/provider.js';
 import { run } from '../src/process.js';
 import { runReviewers } from '../src/reviewers.js';
@@ -13,6 +13,20 @@ import { runReviewers } from '../src/reviewers.js';
 const snapshot = snapshotSchema.parse(JSON.parse(await readFile(new URL('./fixtures/pr.json', import.meta.url), 'utf8')));
 const prompt = reviewPrompt(snapshot);
 const clean: ReviewResult = { summary: 'Reviewed supplied context', findings: [], limitations: [] };
+
+test('Claude receives its configured Git Bash path without inheriting unrelated secrets', () => {
+  const prior = process.env.CLAUDE_CODE_GIT_BASH_PATH;
+  process.env.CLAUDE_CODE_GIT_BASH_PATH = 'C:/custom-git/bin/bash.exe';
+  process.env.REVIEW_NATIVE_SECRET = 'not-for-provider';
+  try {
+    const env = claudeEnvironment('/isolated');
+    assert.equal(env.CLAUDE_CODE_GIT_BASH_PATH, process.env.CLAUDE_CODE_GIT_BASH_PATH);
+    assert.equal(env.REVIEW_NATIVE_SECRET, undefined); assert.equal(env.GH_TOKEN, undefined); assert.equal(env.XAI_API_KEY, undefined);
+  } finally {
+    if (prior === undefined) delete process.env.CLAUDE_CODE_GIT_BASH_PATH; else process.env.CLAUDE_CODE_GIT_BASH_PATH = prior;
+    delete process.env.REVIEW_NATIVE_SECRET;
+  }
+});
 
 test('reviewer selection rejects missing models, duplicates, mixed simulation and ambiguous configuration', () => {
   for (const input of [

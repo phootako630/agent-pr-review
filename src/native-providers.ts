@@ -11,6 +11,12 @@ const usageSchema = z.object({
   cache_read_input_tokens: z.number().nonnegative().optional(), cache_creation_input_tokens: z.number().nonnegative().optional(),
 });
 
+export function claudeEnvironment(home: string): NodeJS.ProcessEnv {
+  return { ...baseEnvironment(), HOME: home, USERPROFILE: home, APPDATA: home, LOCALAPPDATA: home,
+    CLAUDE_CONFIG_DIR: home,
+    ...(process.env.CLAUDE_CODE_GIT_BASH_PATH ? { CLAUDE_CODE_GIT_BASH_PATH: process.env.CLAUDE_CODE_GIT_BASH_PATH } : {}) };
+}
+
 export function parseClaudeOutput(output: string): ProviderResponse {
   let value;
   try { value = JSON.parse(output); } catch { throw new Error('Claude returned invalid JSON.'); }
@@ -59,7 +65,7 @@ export async function probeNative(name: 'claude' | 'grok', signal: AbortSignal):
   const supported = name === 'claude' ? '2.1.293 (Claude Code)' : 'grok 1.0.50 (c58f321264ba)';
   if (version !== supported) throw new Error(`${name} CLI protocol is supported at ${supported}; installed version differs.`);
   const help = await run(exe.command, [...exe.prefix, ...prefix, '--help'], { signal, env: baseEnvironment() });
-  for (const flag of ['--tools', '--json-schema', '--output-format', ...(name === 'claude' ? ['--bare', '--safe-mode', '--restricted', '--strict-mcp-config', '--no-session-persistence'] : ['--prompt-file', '--disable-web-search', '--no-subagents'])]) {
+  for (const flag of ['--tools', '--json-schema', '--output-format', ...(name === 'claude' ? ['--bare', '--safe-mode', '--restricted', '--strict-mcp-config', '--no-session-persistence'] : ['--prompt-file', '--verbatim', '--disable-web-search', '--no-subagents'])]) {
     if (!help.includes(flag)) throw new Error(`${name} CLI lacks required capability ${flag}.`);
   }
   return version;
@@ -88,7 +94,7 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
         '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
         '--no-session-persistence', '--disable-slash-commands', '--no-chrome',
         '--permission-mode', 'dontAsk', '--output-format', 'json', '--json-schema', JSON.stringify(outputJsonSchema)],
-      { cwd, env: { ...env, ...(apiKey ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}), CLAUDE_CONFIG_DIR: home }, input: prompt, signal });
+      { cwd, env: { ...claudeEnvironment(home), ...(apiKey ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}) }, input: prompt, signal });
       return parseClaudeOutput(output);
     }
     const apiKey = auth !== 'browser' && !!process.env.XAI_API_KEY;
@@ -103,7 +109,7 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
     await writeFile(join(home, 'config.toml'), config, { mode: 0o600 });
     const promptPath = join(sandbox, 'prompt.txt');
     await writeFile(promptPath, prompt, { mode: 0o600 });
-    const output = await run(exe.command, ['--no-auto-update', '--prompt-file', promptPath, '--model', model,
+    const output = await run(exe.command, ['--no-auto-update', '--verbatim', '--prompt-file', promptPath, '--model', model,
       '--cwd', cwd, '--tools', '', '--disable-web-search', '--no-subagents', '--no-plan',
       '--permission-mode', 'dontAsk', '--max-turns', '1', '--output-format', 'json', '--json-schema', JSON.stringify(outputJsonSchema)],
     { cwd, env: { ...env, GROK_HOME: home, GROK_MEMORY: '0', GROK_GOAL: '0', GROK_DISABLE_AUTOUPDATER: '1',

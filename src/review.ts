@@ -57,7 +57,7 @@ export async function review(options: {
     };
     if (report.providers.length === 1) {
       const p = report.providers[0]!;
-      report.provider = { name: p.name, version: p.version, model: p.model ?? p.requestedModel };
+      report.provider = { name: p.name, version: p.version, model: p.model };
       report.usage = p.usage;
     }
     report.errors = report.providers.flatMap(p => p.errors.map(e => `${p.name}: ${e}`));
