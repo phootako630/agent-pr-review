@@ -20,6 +20,8 @@ M2 implements `probe` and `review` through a bounded worker scheduler. Capture h
 
 Schema-v2 local reports retain a `providers` array with each provider's CLI version, requested/reported model, timing, status, whitelisted usage/cost estimate, schema-valid original candidates, filtered results, and controlled diagnostics. Aggregated findings are concatenated; semantic deduplication and GitHub publication belong to M3. Temporary credential homes and logs are removed on normal completion/cancellation.
 
+Grok 1.0.50 retains a primary terminal definition despite its tool filter. The adapter denies every tool permission and rejects successful output unless its recorded session contains the exact user prompt, no tool calls/results, and no additional definitions. An empty tools argument retains the default catalog in this CLI, so the adapter supplies an explicit filter and removal list. This is a trusted-CLI enforcement boundary; the local transcript cannot prove what a remote inference service received.
+
 ## Snapshot and trust boundaries
 
 Record both PR base/head SHA and the merge base used for comparison. Review the head checkout against the captured comparison basis. Use a separate checkout or container per provider and never allow competing writes to a user's active worktree.

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, readFile, rm, access } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, access, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { configSchema, hash, selectedReviewers, snapshotSchema, type ReviewResult } from '../src/contracts.js';
-import { claudeEnvironment, parseClaudeOutput, parseGrokOutput } from '../src/native-providers.js';
+import { claudeEnvironment, parseClaudeOutput, parseGrokOutput, verifyGrokSession } from '../src/native-providers.js';
 import { reviewPrompt } from '../src/provider.js';
 import { run } from '../src/process.js';
 import { runReviewers } from '../src/reviewers.js';
@@ -26,6 +26,26 @@ test('Claude receives its configured Git Bash path without inheriting unrelated 
     if (prior === undefined) delete process.env.CLAUDE_CODE_GIT_BASH_PATH; else process.env.CLAUDE_CODE_GIT_BASH_PATH = prior;
     delete process.env.REVIEW_NATIVE_SECRET;
   }
+});
+
+test('Grok session audit rejects extra tools, tool calls, and modified input', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'grok-audit-'));
+  const session = join(home, 'sessions', 'isolated');
+  await mkdir(session, { recursive: true });
+  const definitions = join(session, 'tool_definitions.json'), transcript = join(session, 'chat_history.jsonl');
+  const event = { type: 'user', content: [{ type: 'text', text: prompt }] };
+  try {
+    await writeFile(definitions, JSON.stringify([{ type: 'function', function: { name: 'run_terminal_command' } }]));
+    await writeFile(transcript, JSON.stringify(event) + '\n');
+    await verifyGrokSession(home, prompt);
+    await writeFile(definitions, JSON.stringify([{ type: 'function', function: { name: 'read_file' } }]));
+    await assert.rejects(verifyGrokSession(home, prompt), /tool definitions/);
+    await writeFile(definitions, '[]');
+    await writeFile(transcript, JSON.stringify({ ...event, content: [{ type: 'text', text: prompt.slice(0, 100) }] }) + '\n');
+    await assert.rejects(verifyGrokSession(home, prompt), /exact supplied/);
+    await writeFile(transcript, [event, { type: 'assistant', content: [{ type: 'tool_use', name: 'run_terminal_command' }] }].map(e => JSON.stringify(e)).join('\n'));
+    await assert.rejects(verifyGrokSession(home, prompt), /used tools/);
+  } finally { await rm(home, { recursive: true, force: true }); }
 });
 
 test('reviewer selection rejects missing models, duplicates, mixed simulation and ambiguous configuration', () => {

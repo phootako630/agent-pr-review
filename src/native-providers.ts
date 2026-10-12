@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
@@ -6,6 +6,15 @@ import { outputJsonSchema, resultSchema, type ReviewResult } from './contracts.j
 import { baseEnvironment, failureHint, resolveNative, run } from './process.js';
 
 export type ProviderResponse = { result: ReviewResult; model: string | null; usage: unknown };
+// Complete built-in catalog observed in the pinned Grok 1.0.50 session protocol.
+// An empty --tools argument alone retains the default catalog in this version.
+export const grokDisallowedTools = [
+  'run_terminal_command', 'read_file', 'search_replace', 'list_dir', 'grep',
+  'kill_command_or_subagent', 'todo_write', 'get_command_or_subagent_output', 'spawn_subagent',
+  'scheduler_create', 'scheduler_delete', 'scheduler_list', 'monitor', 'search_tool', 'use_tool',
+  'workflow', 'enter_plan_mode', 'exit_plan_mode', 'ask_user_question', 'send_feedback',
+  'image_gen', 'image_edit', 'image_to_video', 'reference_to_video', 'write',
+].join(',');
 const usageSchema = z.object({
   input_tokens: z.number().nonnegative().optional(), output_tokens: z.number().nonnegative().optional(),
   cache_read_input_tokens: z.number().nonnegative().optional(), cache_creation_input_tokens: z.number().nonnegative().optional(),
@@ -15,6 +24,31 @@ export function claudeEnvironment(home: string): NodeJS.ProcessEnv {
   return { ...baseEnvironment(), HOME: home, USERPROFILE: home, APPDATA: home, LOCALAPPDATA: home,
     CLAUDE_CONFIG_DIR: home,
     ...(process.env.CLAUDE_CODE_GIT_BASH_PATH ? { CLAUDE_CODE_GIT_BASH_PATH: process.env.CLAUDE_CODE_GIT_BASH_PATH } : {}) };
+}
+
+export async function verifyGrokSession(home: string, prompt: string): Promise<void> {
+  const root = join(home, 'sessions');
+  let files: string[];
+  try { files = await readdir(root, { recursive: true }); }
+  catch { throw new Error('Grok session audit is unavailable. Output rejected.'); }
+  const definitions = files.filter(f => f.endsWith('tool_definitions.json'));
+  const transcripts = files.filter(f => f.endsWith('chat_history.jsonl'));
+  if (definitions.length !== 1 || transcripts.length !== 1) throw new Error('Grok session audit does not match the supported protocol.');
+  try {
+    const tools = JSON.parse(await readFile(join(root, definitions[0]!), 'utf8'));
+    // This CLI always retains its primary terminal definition. Permissions deny all
+    // execution; reject any other retained tool and any attempted call below.
+    if (!Array.isArray(tools) || tools.some(t => t?.function?.name !== 'run_terminal_command') || tools.length > 1) throw new Error();
+  } catch { throw new Error('Grok retained tool definitions in a tool-free review. Output rejected.'); }
+  try {
+    const lines = (await readFile(join(root, transcripts[0]!), 'utf8')).split('\n').filter(Boolean);
+    const events = lines.map(line => JSON.parse(line));
+    if (events.some(event => Array.isArray(event.content) && event.content.some((c: { type?: string }) => c.type === 'tool_use' || c.type === 'tool_result'))) throw new Error();
+    const hasExactInput = events.some(event => {
+      return event.type === 'user' && Array.isArray(event.content) && event.content.some((c: { type?: string; text?: string }) => c.type === 'text' && c.text === prompt);
+    });
+    if (!hasExactInput) throw new Error();
+  } catch { throw new Error('Grok session used tools or did not record the exact supplied review packet. Output rejected.'); }
 }
 
 export function parseClaudeOutput(output: string): ProviderResponse {
@@ -65,7 +99,7 @@ export async function probeNative(name: 'claude' | 'grok', signal: AbortSignal):
   const supported = name === 'claude' ? '2.1.293 (Claude Code)' : 'grok 1.0.50 (c58f321264ba)';
   if (version !== supported) throw new Error(`${name} CLI protocol is supported at ${supported}; installed version differs.`);
   const help = await run(exe.command, [...exe.prefix, ...prefix, '--help'], { signal, env: baseEnvironment() });
-  for (const flag of ['--tools', '--json-schema', '--output-format', ...(name === 'claude' ? ['--bare', '--safe-mode', '--restricted', '--strict-mcp-config', '--no-session-persistence'] : ['--prompt-file', '--verbatim', '--disable-web-search', '--no-subagents'])]) {
+  for (const flag of ['--tools', '--json-schema', '--output-format', ...(name === 'claude' ? ['--bare', '--safe-mode', '--restricted', '--strict-mcp-config', '--no-session-persistence'] : ['--disallowed-tools', '--prompt-file', '--verbatim', '--disable-web-search', '--no-subagents'])]) {
     if (!help.includes(flag)) throw new Error(`${name} CLI lacks required capability ${flag}.`);
   }
   return version;
@@ -110,10 +144,11 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
     const promptPath = join(sandbox, 'prompt.txt');
     await writeFile(promptPath, prompt, { mode: 0o600 });
     const output = await run(exe.command, ['--no-auto-update', '--verbatim', '--prompt-file', promptPath, '--model', model,
-      '--cwd', cwd, '--tools', '', '--disable-web-search', '--no-subagents', '--no-plan',
+      '--cwd', cwd, '--tools', 'none', '--disallowed-tools', grokDisallowedTools, '--disable-web-search', '--no-subagents', '--no-plan',
       '--permission-mode', 'dontAsk', '--max-turns', '1', '--output-format', 'json', '--json-schema', JSON.stringify(outputJsonSchema)],
     { cwd, env: { ...env, GROK_HOME: home, GROK_MEMORY: '0', GROK_GOAL: '0', GROK_DISABLE_AUTOUPDATER: '1',
       ...(apiKey ? { XAI_API_KEY: process.env.XAI_API_KEY } : {}) }, signal });
+    await verifyGrokSession(home, prompt);
     return parseGrokOutput(output);
   } finally { await rm(sandbox, { recursive: true, force: true }); }
 }
