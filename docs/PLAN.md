@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: proposed implementation, ready to build.
+Created: 2026-10-12. Status: M1 implementation underway; later milestones remain planned.
 
 ## Outcome
 
@@ -30,11 +30,13 @@ Each milestone is a reviewable vertical slice. Finish and validate one before ex
 
 - [x] Describe scope, architecture, integration references, and delivery order.
 - [x] Initialize the Git repository with documentation and ignore rules.
-- [ ] Implementation starts at M1; no working CLI is claimed at this stage.
+- [x] M1 implementation started on `feat/m1-local-review`.
 
 ### M1 — One-agent local review
 
 Deliver CLI argument handling, configuration validation, `doctor`, PR metadata retrieval, fixed source snapshot, diff parser, a Codex adapter, versioned finding validation, and Markdown/JSON reports. Introduce a fake adapter for offline development.
+
+Implementation scope: packet-only Codex review with explicit related-file inclusion. Autonomous source browsing is deferred. Pin the tested Codex CLI protocol to 0.162.1; require an explicit accessible model ID. Use a bare Git snapshot to avoid repository hooks/filters and GitHub patch truncation. See README for commands and partial-run exit codes.
 
 Acceptance:
 

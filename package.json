@@ -1,0 +1,25 @@
+{
+  "name": "agent-pr-review",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Independent PR reviews with explicit human decisions before rework",
+  "type": "module",
+  "bin": { "pr-review": "dist/cli.js" },
+  "engines": { "node": ">=24.18.0 <25" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@octokit/rest": "22.0.1",
+    "commander": "15.0.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}
