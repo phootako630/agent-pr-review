@@ -2,7 +2,7 @@
 
 Automatic PR reviews from Codex, Claude Code, and Grok, followed by author assessment and a human decision before rework.
 
-**Status: M2 implementation.** The local CLI captures a PR once, runs independent Codex, Claude Code, and Grok reviews with bounded concurrency, and writes JSON/Markdown reports. Provider failures preserve completed reviews. Automatic comments, author assessment, and human decisions remain planned.
+**Status: M3 implementation.** The CLI runs independent Codex, Claude Code, and Grok reviews, retains evidence/provenance, and explicitly publishes comment-only GitHub reviews with duplicate protection. Automatic triggers, author assessment, and human decisions remain planned.
 
 ## Run locally
 
@@ -32,7 +32,7 @@ If Codex 0.162.1 is already on PATH, run `node dist/cli.js review ...` directly.
 
 Authentication: Codex uses `OPENAI_API_KEY` or file-backed `codex login` credentials. Claude uses `ANTHROPIC_API_KEY` in bare mode, or file-backed `claude auth login` credentials with `--auth browser`. Grok uses `XAI_API_KEY` or `grok login` browser credentials. Without an explicit auth setting, a present provider API key takes precedence over browser credentials. Authentication errors do not trigger an automatic switch or retry. Keychain-only credentials are not yet supported. CLI paths are resolved from PATH; no global install is changed by this tool.
 
-Reports are saved under `.pr-review/runs/<run-id>/report.json` and `report.md`. Schema version 2 has a `providers` array with individual status, requested/reported model, CLI version, timings, usage, errors, original candidates (`rawResult`), and evidence-filtered findings (`result`). The top-level result concatenates successful findings without deduplication; use provider records for provenance. Cost values are CLI estimates. A provider may report a different canonical model ID from the requested alias; both are recorded. No actual model identifier is invented when the CLI omits it.
+Reports are saved under `.pr-review/runs/<run-id>/report.json`, `report.md`, and `normalized-findings.json`. Schema version 2 has a `providers` array with individual status, requested/reported model, CLI version, timings, usage, errors, original candidates (`rawResult`), and evidence-filtered findings (`result`). The top-level result retains the M2 concatenated format; the separate normalized artifact contains conservative groups, provenance, and held candidates. Cost values are CLI estimates. A provider may report a different canonical model ID from the requested alias; both are recorded. No actual model identifier is invented when the CLI omits it.
 
 Reports contain private source context; keep them out of Git and manage their retention. Temporary Git snapshots and provider homes are deleted after completion. An abrupt process kill can leave credential copies and logs; remove that run's `codex/provider`, `claude/provider`, and `grok/provider` directories before sharing artifacts.
 
@@ -48,7 +48,32 @@ Grok filters optional built-in tools, disables web tools/subagents and compatibi
 
 Large/binary files, unsupported paths, symlinks, and submodules are listed as exclusions. Git computes the complete changed-file list, avoiding GitHub's paginated or truncated patch responses. Size limits are applied to the review packet; the temporary Git fetch still needs history to compute the merge base and can be large.
 
-Exit codes: `0` completed within supplied scope; `1` failed or invalid input; `2` partial coverage, model-reported limitations, rejected findings, or simulation; `130` cancellation/deadline. Findings themselves do not cause a failing exit code. A partial or simulated zero-finding report never claims a clean review. GitHub publication is not implemented, including when `--dry-run` is omitted.
+Review exit codes: `0` completed within supplied scope; `1` failed or invalid input; `2` partial coverage, model-reported limitations, rejected findings, or simulation; `130` cancellation/deadline. Findings themselves do not cause a failing exit code. A partial or simulated zero-finding report never claims a clean review. `review` always stays local; `publish` is the explicit GitHub mutation command.
+
+## Publish a review
+
+```sh
+# Re-fetch source and save publication-plan.json / publication-preview.md:
+node dist/cli.js publish .pr-review/runs/RUN_ID/report.json --dry-run
+
+# Publish a COMMENT review at its captured head SHA:
+node dist/cli.js publish .pr-review/runs/RUN_ID/report.json
+
+# Partial coverage requires a deliberate opt-in, including for a preview:
+node dist/cli.js publish .pr-review/runs/RUN_ID/report.json --allow-partial
+```
+
+Publication requires a GitHub user token with PR read/write permissions, supplied by `gh auth login`, `GH_TOKEN`, or `GITHUB_TOKEN`. The current publisher resolves identity through `GET /user`; installation/bot-token identity integration is deferred to M4. No model credentials are needed by `publish`.
+
+Before any GitHub mutation, the publisher validates the report schema, hashes, provider results, and repository identity, re-fetches the exact source/metadata, and checks that the PR is open/ready with unchanged head/base SHAs. Schema-v2 M2 reports remain supported. Simulated, failed, and cancelled reports are refused. Source hashes are integrity checks, not signatures or proof that a model call occurred; the operator chooses the report to publish.
+
+Only identical description/trigger/impact/evidence at the same anchor are deduplicated. Similar titles do not merge unrelated defects. Different claims sharing an anchor are retained as potential conflicts or separate defects for human inspection. Invalid anchors, placeholder claims, and comment-budget overflow stay in the summary/local plan. Default inline budget is 20 (`--max-comments`, up to 50). Model agreement alone does not qualify a finding.
+
+Publication journals and per-PR local locks live in `.pr-review/publications`; use a shared `--state-dir` when invoking from different working directories. Repeating a report reconciles tool markers and publisher identity. Ambiguous create failures are never blindly retried; a later invocation reads remote state first. An unresolved outcome remains blocked pending inspection/remote visibility. Owned marked inline comments can be updated; replies, unmarked/foreign comments, and older-head discussions are preserved. The publisher never approves, requests changes, resolves threads, or merges.
+
+An abrupt publisher termination can leave `publisher.lock`. Verify no publisher is running before removing that lock. Removing an uncertain journal can defeat duplicate protection; inspect the remote review before resetting state. Cross-machine races remain possible without distributed locking. CI publishers must use per-PR concurrency with cancellation disabled; automated CI publication is M4. See [publication policy and recovery](docs/PUBLICATION.md) for details.
+
+Publish exits `0` after a successful preview or confirmed reconciliation, `1` on refusal/error, and `130` on user cancellation. A push racing a write can leave a comment at the older reviewed SHA; final freshness checks refuse to describe it as a review of the new head.
 
 ## Development checks
 
@@ -94,7 +119,6 @@ These commands describe the target interface; they are not available yet.
 
 ```sh
 pr-review review https://github.com/owner/repo/pull/123 --config pr-review.multi.example.json --cross-review --dry-run
-pr-review publish .pr-review/runs/<run-id>/report.json
 pr-review handoff https://github.com/owner/repo/pull/123
 ```
 
@@ -113,6 +137,7 @@ These future GitHub Actions runs will publish automatically. Comments will ident
 - [Implementation plan and acceptance criteria](docs/PLAN.md)
 - [Architecture and review policy](docs/ARCHITECTURE.md)
 - [Official integration references](docs/REFERENCES.md)
+- [Publication policy and recovery](docs/PUBLICATION.md)
 
 ## Initial scope
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
-export const VERSION = '0.2.0-dev';
+export const VERSION = '0.3.0-dev';
 export const sha = z.string().regex(/^[0-9a-f]{40}$/);
 export const repoPath = z.string().min(1).max(1024).refine(p =>
   !p.startsWith('/') && !p.includes('\\') && !p.includes(':') &&

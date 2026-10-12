@@ -10,9 +10,11 @@ export function gitEnvironment(token?: string): NodeJS.ProcessEnv {
     ...baseEnvironment(),
     GIT_LITERAL_PATHSPECS: '1',
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
-    GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: token ? '2' : '1',
+    GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: token ? '3' : '2',
     GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',
-    ...(token ? { GIT_CONFIG_KEY_1: 'http.https://github.com/.extraheader', GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}` } : {}),
+    // Isolated Git ignores global config; retain Windows long-path support explicitly.
+    GIT_CONFIG_KEY_1: 'core.longpaths', GIT_CONFIG_VALUE_1: 'true',
+    ...(token ? { GIT_CONFIG_KEY_2: 'http.https://github.com/.extraheader', GIT_CONFIG_VALUE_2: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}` } : {}),
   };
 }
 
