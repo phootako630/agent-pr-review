@@ -81,7 +81,8 @@ test('subprocess cancellation and output caps terminate execution', async () => 
 test('offline fake run saves reports and never claims a clean live review', async () => {
   const output = await mkdtemp(join(tmpdir(), 'pr-review-test-'));
   try {
-    const { directory, report } = await review({ fixture: fileURLToPath(fixturePath), output, config: configSchema.parse({ reviewer: 'fake' }) });
+    const { directory, report } = await review({ fixture: fileURLToPath(fixturePath), output, config: configSchema.parse({ reviewer: 'fake', model: 'requested-only' }) });
+    assert.equal(report.provider.model, null, 'Requested model must not substitute for a reported model');
     assert.equal(report.mode, 'simulation');
     assert.equal(report.outcome, 'inconclusive');
     assert.equal(report.status, 'partial');

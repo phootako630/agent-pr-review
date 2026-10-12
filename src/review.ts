@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { configSchema, hash, snapshotSchema, VERSION, type Config, type Report } from './contracts.js';
-import { validateFindings } from './diff.js';
+import { configSchema, hash, selectedReviewers, snapshotSchema, VERSION, type Config, type Report } from './contracts.js';
 import { githubToken, parsePrUrl } from './github.js';
-import { codexReview, fakeReview, probeCodex, reviewPrompt } from './provider.js';
+import { reviewPrompt } from './provider.js';
+import { runReviewers } from './reviewers.js';
 import { saveReport } from './report.js';
 import { capturePr, limitSnapshot } from './snapshot.js';
 
@@ -20,9 +20,10 @@ export async function review(options: {
   progress?: (message: string) => void;
 }): Promise<{ directory: string; report: Report }> {
   const config = configSchema.parse(options.config);
-  if (config.reviewer === 'codex' && !config.model) throw new Error('Specify --model <accessible-model-id> or set model in the JSON config. M1 records an explicit model for reproducibility.');
+  const reviewers = selectedReviewers(config);
+  const simulation = reviewers[0]!.name === 'fake';
   if (options.fixture) {
-    if (config.reviewer !== 'fake' || options.url) throw new Error('--fixture requires --reviewer fake and no PR URL.');
+    if (!simulation || options.url) throw new Error('--fixture requires --reviewer fake and no PR URL.');
   } else if (!options.url) throw new Error('Provide a PR URL or use --reviewer fake --fixture <snapshot.json>.');
   else parsePrUrl(options.url);
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
@@ -31,17 +32,13 @@ export async function review(options: {
   const started = Date.now();
   const signal = AbortSignal.any([AbortSignal.timeout(config.timeoutSeconds * 1000), ...(options.signal ? [options.signal] : [])]);
   const report: Report = {
-    schemaVersion: 1, toolVersion: VERSION, runId, startedAt: new Date(started).toISOString(),
-    finishedAt: '', durationMs: 0, status: 'failed', mode: config.reviewer === 'fake' ? 'simulation' : 'live',
+    schemaVersion: 2, toolVersion: VERSION, runId, startedAt: new Date(started).toISOString(),
+    finishedAt: '', durationMs: 0, status: 'failed', mode: simulation ? 'simulation' : 'live',
     outcome: 'inconclusive', config, configHash: hash(config), contextHash: null, promptHash: null,
-    provider: { name: config.reviewer, version: null, model: config.model ?? null }, snapshot: null,
+    provider: { name: reviewers.length === 1 ? reviewers[0]!.name : 'multiple', version: null, model: null }, providers: [], snapshot: null,
     result: null, errors: [], usage: null,
   };
   try {
-    if (config.reviewer === 'codex') {
-      options.progress?.('Checking Codex CLI capabilities…');
-      report.provider.version = await probeCodex(signal);
-    } else report.provider.version = VERSION;
     options.progress?.('Capturing fixed PR snapshot…');
     report.snapshot = options.fixture
       ? limitSnapshot(snapshotSchema.parse(await readJson(options.fixture)), config)
@@ -51,16 +48,21 @@ export async function review(options: {
     report.promptHash = hash(prompt);
     if (!report.snapshot.files.some(f => f.kind === 'change')) throw new Error('No reviewable changed text files remain in the supplied context. See coverage exclusions.');
     if (signal.aborted) throw new Error('Review cancelled or deadline exceeded.');
-    options.progress?.(`Reviewing ${report.snapshot.files.length} supplied files with ${config.reviewer}…`);
-    if (config.reviewer === 'fake') report.result = fakeReview();
-    else {
-      const response = await codexReview(prompt, config, directory, signal);
-      report.result = validateFindings(response.result, report.snapshot);
-      report.provider.model = response.model;
-      report.usage = response.usage;
+    report.providers = await runReviewers({ reviewers, config, snapshot: report.snapshot, prompt, directory, signal, progress: options.progress });
+    const successful = report.providers.filter(p => p.result !== null);
+    if (successful.length) report.result = {
+      summary: successful.map(p => `${p.name}: ${p.result!.summary}`).join('\n'),
+      findings: successful.flatMap(p => p.result!.findings),
+      limitations: successful.flatMap(p => p.result!.limitations.map(l => `${p.name}: ${l}`)),
+    };
+    if (report.providers.length === 1) {
+      const p = report.providers[0]!;
+      report.provider = { name: p.name, version: p.version, model: p.model };
+      report.usage = p.usage;
     }
-    report.status = report.snapshot.exclusions.length || report.result.limitations.length ? 'partial' : 'complete';
-    report.outcome = report.mode === 'simulation' ? 'inconclusive' : report.result.findings.length ? 'findings' : report.status === 'complete' ? 'no_findings' : 'inconclusive';
+    report.errors = report.providers.flatMap(p => p.errors.map(e => `${p.name}: ${e}`));
+    report.status = signal.aborted ? 'cancelled' : !successful.length ? 'failed' : report.providers.every(p => p.status === 'complete') ? 'complete' : 'partial';
+    report.outcome = simulation ? 'inconclusive' : report.result?.findings.length ? 'findings' : report.status === 'complete' ? 'no_findings' : 'inconclusive';
   } catch (error) {
     report.status = signal.aborted ? 'cancelled' : 'failed';
     // Validation errors may echo source or secrets; only persist bounded, controlled diagnostics.

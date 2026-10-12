@@ -2,11 +2,11 @@
 
 Automatic PR reviews from Codex, Claude Code, and Grok, followed by author assessment and a human decision before rework.
 
-**Status: M1 implementation.** The local CLI captures a PR, runs a bounded Codex review, and writes JSON/Markdown reports. The fake adapter supports offline testing. Automatic review comments, other providers, author assessment, and human decisions remain planned.
+**Status: M2 implementation.** The local CLI captures a PR once, runs independent Codex, Claude Code, and Grok reviews with bounded concurrency, and writes JSON/Markdown reports. Provider failures preserve completed reviews. Automatic comments, author assessment, and human decisions remain planned.
 
-## Run M1 locally
+## Run locally
 
-Requirements: Node.js 24.18.0 (see `.nvmrc`), Git, GitHub access through `gh auth login` or `GH_TOKEN`, and a Codex login stored in `auth.json` or `OPENAI_API_KEY`. M1 is tested against **Codex CLI 0.162.1** and rejects other versions until their protocol/configuration is validated. Keychain-only Codex credentials are not yet supported by the isolated adapter.
+Requirements: Node.js 24.18.0 (see `.nvmrc`), Git, GitHub access through `gh auth login` or `GH_TOKEN`, and the official CLI and credentials for each selected provider. Tested protocols are **Codex 0.162.1**, **Claude Code 2.1.293**, and **Grok 1.0.50**; other versions are rejected pending validation. Only selected providers need to be installed.
 
 ```sh
 npm ci --ignore-scripts
@@ -16,17 +16,35 @@ npm run build
 npm exec --yes --package=@openai/codex@0.162.1 -- node dist/cli.js doctor
 npm exec --yes --package=@openai/codex@0.162.1 -- node dist/cli.js review https://github.com/OWNER/REPO/pull/123 --model YOUR_ACCESSIBLE_MODEL_ID
 
+# Claude or Grok with existing browser credentials:
+node dist/cli.js doctor --reviewer claude --auth browser
+node dist/cli.js review https://github.com/OWNER/REPO/pull/123 --reviewer claude --model YOUR_CLAUDE_MODEL_ID --auth browser
+node dist/cli.js review https://github.com/OWNER/REPO/pull/123 --reviewer grok --model YOUR_GROK_MODEL_ID --auth browser
+
+# Edit model IDs in this example, then review with all three:
+npm exec --yes --package=@openai/codex@0.162.1 -- node dist/cli.js review https://github.com/OWNER/REPO/pull/123 --config pr-review.multi.example.json
+
 # Offline demonstration; deliberately exits 2 because this is a simulation:
 node dist/cli.js review --reviewer fake --fixture tests/fixtures/pr.json
 ```
 
 If Codex 0.162.1 is already on PATH, run `node dist/cli.js review ...` directly. Supply a model available to your account; the tool does not choose or substitute one. `doctor` checks installation and credential presence, not model entitlement.
 
-Reports are saved under `.pr-review/runs/<run-id>/report.json` and `report.md`. They contain private source context; keep them out of Git and manage their retention. The run deletes its temporary Git snapshot and temporary Codex credential copy after completion. An abrupt process kill can leave temporary files; remove that run's `provider` directory before sharing artifacts.
+Authentication: Codex uses `OPENAI_API_KEY` or file-backed `codex login` credentials. Claude uses `ANTHROPIC_API_KEY` in bare mode, or file-backed `claude auth login` credentials with `--auth browser`. Grok uses `XAI_API_KEY` or `grok login` browser credentials. Without an explicit auth setting, a present provider API key takes precedence over browser credentials. Authentication errors do not trigger an automatic switch or retry. Keychain-only credentials are not yet supported. CLI paths are resolved from PATH; no global install is changed by this tool.
+
+Reports are saved under `.pr-review/runs/<run-id>/report.json` and `report.md`. Schema version 2 has a `providers` array with individual status, requested/reported model, CLI version, timings, usage, errors, original candidates (`rawResult`), and evidence-filtered findings (`result`). The top-level result concatenates successful findings without deduplication; use provider records for provenance. Cost values are CLI estimates. A provider may report a different canonical model ID from the requested alias; both are recorded. No actual model identifier is invented when the CLI omits it.
+
+Reports contain private source context; keep them out of Git and manage their retention. Temporary Git snapshots and provider homes are deleted after completion. An abrupt process kill can leave credential copies and logs; remove that run's `codex/provider`, `claude/provider`, and `grok/provider` directories before sharing artifacts.
 
 Use `--config pr-review.example.json` for limits, `--context-file src/related.ts` to include additional source from the captured head, and `--output <directory>` to choose the report parent. Run `node dist/cli.js review --help` for supported options. CLI options override JSON configuration; unknown config fields are rejected.
 
-M1 passes changed files (before/after), a locally generated diff, PR intent, and explicitly requested context to an isolated Codex session. Shell, execution host, browser, plugins, MCP configuration, and agent delegation are disabled; user config and rules are not inherited. The adapter requests a read-only sandbox and rejects tool-use events. It does not execute repository tests or provide autonomous repository exploration. This is a bounded text review, not a claim of whole-repository analysis or OS-level isolation against a compromised CLI.
+Choose either the single-provider `reviewer`/`model`/`auth` fields or the multi-provider `reviewers` array. Each live reviewer requires an explicit model. Duplicate providers and mixed fake/live configurations are rejected. Optional per-reviewer `version` pins are checked against the installed supported CLI. `concurrency` defaults to 2 (maximum 3). `providerTimeoutSeconds` covers each provider's probe and review; `timeoutSeconds` covers capture and all reviewers, including queue time. Provider timeout or failure makes a usable report partial; failure of every provider makes it failed. Overall cancellation preserves reviews already finished and marks running/queued providers cancelled.
+
+Each provider receives the same changed files (before/after), locally generated diff, PR intent, and explicitly requested context. Context and prompt hashes are identical across reviewers. Independent sessions never receive other reviewers' findings. Each uses a separate empty working directory and a sanitized environment with only its own credentials.
+
+Codex disables tools, execution host, browser, plugins, MCP configuration, and delegation; it ignores user configuration/rules, requests a read-only sandbox, and rejects tool events. Claude disables built-in/MCP tools and session persistence, using bare mode for API keys or safe/restricted mode for browser credentials. Browser mode disables user/project customization and requests hooks disabled; administrator-managed policy still applies. The Claude environment preserves a configured `CLAUDE_CODE_GIT_BASH_PATH` on Windows.
+
+Grok filters optional built-in tools, disables web tools/subagents and compatibility discovery, denies all tool permissions, and uses a temporary GROK_HOME. The pinned CLI retains its primary terminal definition even with an explicit tool filter; the deny-all policy blocks execution, and a successful review must pass a session audit rejecting tool calls or additional tool definitions. The audit also checks that the exact supplied prompt was recorded in the user transcript. Grok's prompt file avoids Windows command-line length limits; `--verbatim` requests exact input instead of CLI prompt preprocessing. Large packets can take longer or exceed a provider deadline; use explicit context limits and inspect exclusions/limitations. This is bounded text review, without repository test execution or autonomous exploration. It does not claim whole-repository analysis or OS-level isolation against a compromised CLI or trusted administrator policy.
 
 Large/binary files, unsupported paths, symlinks, and submodules are listed as exclusions. Git computes the complete changed-file list, avoiding GitHub's paginated or truncated patch responses. Size limits are applied to the review packet; the temporary Git fetch still needs history to compute the merge base and can be large.
 
@@ -41,6 +59,8 @@ npm test
 ```
 
 Tests use synthetic Git repositories and a fake adapter; they do not need model credentials or post comments. CI runs these checks on Linux and Windows. Real provider verification is run separately.
+
+Native provider live smokes found the arithmetic regression in `tests/fixtures/pr.json`. Claude browser mode reported `claude-sonnet-5-5`; Grok requested `grok-4.7` and reported `grok-4.7-build`. Codex M1 smoke used `gpt-6.1-sol`. These are verification records, not default model choices.
 
 ## Intended workflow
 
@@ -73,7 +93,7 @@ flowchart TD
 These commands describe the target interface; they are not available yet.
 
 ```sh
-pr-review review https://github.com/owner/repo/pull/123 --reviewers codex,claude,grok --cross-review --dry-run
+pr-review review https://github.com/owner/repo/pull/123 --config pr-review.multi.example.json --cross-review --dry-run
 pr-review publish .pr-review/runs/<run-id>/report.json
 pr-review handoff https://github.com/owner/repo/pull/123
 ```
