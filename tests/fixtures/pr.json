@@ -1,0 +1,18 @@
+{
+  "repository": "example/fixture",
+  "pr": 1,
+  "url": "https://github.com/example/fixture/pull/1",
+  "title": "Synthetic offline fixture",
+  "body": "This is not a real GitHub PR.",
+  "baseSha": "1111111111111111111111111111111111111111",
+  "headSha": "2222222222222222222222222222222222222222",
+  "mergeBaseSha": "1111111111111111111111111111111111111111",
+  "totalChangedFiles": 1,
+  "files": [{
+    "path": "math.ts", "previousPath": null, "status": "M", "kind": "change",
+    "patch": "diff --git a/math.ts b/math.ts\n--- a/math.ts\n+++ b/math.ts\n@@ -1 +1 @@\n-export const add = (a, b) => a + b;\n+export const add = (a, b) => a - b;\n",
+    "before": "export const add = (a, b) => a + b;\n",
+    "after": "export const add = (a, b) => a - b;\n"
+  }],
+  "exclusions": []
+}

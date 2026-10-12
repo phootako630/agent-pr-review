@@ -1,0 +1,8 @@
+{
+  "reviewer": "codex",
+  "timeoutSeconds": 600,
+  "maxFiles": 50,
+  "maxFileBytes": 100000,
+  "maxContextBytes": 500000,
+  "contextFiles": []
+}
