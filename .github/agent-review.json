@@ -1,0 +1,13 @@
+{
+  "review": {
+    "reviewers": [
+      { "name": "codex", "model": "CONFIGURE_OPENAI_API_MODEL", "version": "0.162.1" },
+      { "name": "claude", "model": "CONFIGURE_ANTHROPIC_API_MODEL", "auth": "api-key", "version": "2.1.293" },
+      { "name": "grok", "model": "CONFIGURE_XAI_API_MODEL", "auth": "api-key", "version": "1.0.50" }
+    ],
+    "concurrency": 2,
+    "timeoutSeconds": 600,
+    "providerTimeoutSeconds": 300
+  },
+  "publication": { "allowPartial": true, "maxComments": 10 }
+}

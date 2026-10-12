@@ -1,0 +1,157 @@
+name: Independent agent review
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Ready PR number (also the fallback for coding-bot events)
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  gate:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: read
+      actions: read
+    outputs:
+      eligible: ${{ steps.gate.outputs.eligible }}
+      pr: ${{ steps.gate.outputs.pr }}
+      recovery_run: ${{ steps.gate.outputs.recovery_run }}
+      recovery_attempt: ${{ steps.gate.outputs.recovery_attempt }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }} # trusted default-branch revision; never PR head/merge
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - id: gate
+        run: node dist/cli.js actions gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          AGENT_REVIEW_ENABLED: ${{ vars.AGENT_REVIEW_ENABLED }}
+      - if: steps.gate.outputs.eligible == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-packet-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .pr-review/ci/packet/gate.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  review:
+    needs: gate
+    if: needs.gate.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: agent-review-${{ github.repository }}-${{ needs.gate.outputs.pr }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: agent-packet-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .pr-review/ci/packet
+      - if: needs.gate.outputs.recovery_run != '0'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.gate.outputs.recovery_run }}
+          name: agent-report-${{ needs.gate.outputs.recovery_run }}-${{ needs.gate.outputs.recovery_attempt }}
+          path: .pr-review/ci/recovered
+      - if: needs.gate.outputs.recovery_run == '0'
+        run: |
+          npm ci --ignore-scripts --prefix tools/agents
+          node tools/agents/bootstrap.mjs
+          echo "$GITHUB_WORKSPACE/tools/agents/native" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/tools/agents/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Review immutable packet or recover original report
+        run: |
+          if [ "$RECOVERY_RUN" = "0" ]; then
+            node dist/cli.js actions review
+          else
+            node dist/cli.js actions review --recovered .pr-review/ci/recovered
+          fi
+        env:
+          RECOVERY_RUN: ${{ needs.gate.outputs.recovery_run }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      - name: Retain report data only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .pr-review/ci/report/report.json
+            .pr-review/ci/report/report.md
+            .pr-review/ci/report/normalized-findings.json
+            .pr-review/ci/report/manifest.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
+
+  publish:
+    needs: [gate, review]
+    if: needs.gate.outputs.eligible == 'true' && needs.review.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: agent-publish-${{ github.repository }}-${{ needs.gate.outputs.pr }}
+      cancel-in-progress: false # preserve durable write/reconciliation; never cancel on push
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write # durable reservation survives a runner crash / artifact expiry
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: agent-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .pr-review/ci/report
+      - run: node dist/cli.js actions publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .pr-review/ci/publication/publication-plan.json
+            .pr-review/ci/publication/publication-preview.md
+            .pr-review/ci/publication/receipt.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30

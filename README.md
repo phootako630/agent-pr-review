@@ -63,7 +63,21 @@ node dist/cli.js publish .pr-review/runs/RUN_ID/report.json
 node dist/cli.js publish .pr-review/runs/RUN_ID/report.json --allow-partial
 ```
 
-Publication requires a GitHub user token with PR read/write permissions, supplied by `gh auth login`, `GH_TOKEN`, or `GITHUB_TOKEN`. The current publisher resolves identity through `GET /user`; installation/bot-token identity integration is deferred to M4. No model credentials are needed by `publish`.
+Local publication requires a GitHub user token with PR read/write permissions, supplied by `gh auth login`, `GH_TOKEN`, or `GITHUB_TOKEN`. The hosted `actions publish` command supports the standard Actions bot token separately. General third-party App publisher identities remain deferred. No model credentials are needed by either publisher.
+
+## Automatic GitHub Actions reviews (M4)
+
+The [hosted workflow](.github/workflows/agent-review.yml) reviews ready same-repository PRs when opened, reopened, marked ready, or updated. Review jobs use the trusted default-branch coordinator and can be cancelled by newer revisions; separate serialized publisher jobs post COMMENT reviews with durable retry protection. Drafts and forks are skipped. Source/report artifacts are retained for 30 days.
+
+Setup: merge the workflow onto the default branch, configure accessible API model IDs in [.github/agent-review.json](.github/agent-review.json), add `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `XAI_API_KEY` Actions secrets for selected providers, then set repository variable `AGENT_REVIEW_ENABLED=true`. Initial model placeholders and the disabled-by-default gate prevent accidental model calls. Browser credentials are not copied to hosted runners.
+
+Manual retry and coding-bot event fallback:
+
+```sh
+node dist/cli.js dispatch https://github.com/OWNER/REPO/pull/123
+```
+
+See [Actions setup, trust, and recovery](docs/ACTIONS.md). M4 implementation is present; live automatic-trigger/API credential validation is pending setup and merge. The workflow does not yet ask the author to assess findings or authorize rework; that is M5.
 
 Before any GitHub mutation, the publisher validates the report schema, hashes, provider results, and repository identity, re-fetches the exact source/metadata, and checks that the PR is open/ready with unchanged head/base SHAs. Schema-v2 M2 reports remain supported. Simulated, failed, and cancelled reports are refused. Source hashes are integrity checks, not signatures or proof that a model call occurred; the operator chooses the report to publish.
 

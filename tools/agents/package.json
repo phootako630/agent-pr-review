@@ -1,0 +1,10 @@
+{
+  "name": "agent-pr-review-native-tools",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@openai/codex": "0.162.1",
+    "@anthropic-ai/claude-code": "2.1.293",
+    "@xai-official/grok": "1.0.50"
+  }
+}

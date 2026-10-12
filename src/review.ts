@@ -17,7 +17,7 @@ export async function readJson(path: string, maxBytes = 8_000_000): Promise<unkn
 
 export async function review(options: {
   url?: string; fixture?: string; output: string; config: Config; signal?: AbortSignal;
-  progress?: (message: string) => void;
+  progress?: (message: string) => void; capturedSnapshot?: import('./contracts.js').Snapshot;
 }): Promise<{ directory: string; report: Report }> {
   const config = configSchema.parse(options.config);
   const reviewers = selectedReviewers(config);
@@ -40,9 +40,9 @@ export async function review(options: {
   };
   try {
     options.progress?.('Capturing fixed PR snapshot…');
-    report.snapshot = options.fixture
+    report.snapshot = options.capturedSnapshot ?? (options.fixture
       ? limitSnapshot(snapshotSchema.parse(await readJson(options.fixture)), config)
-      : await capturePr(options.url!, await githubToken(signal), directory, config, signal);
+      : await capturePr(options.url!, await githubToken(signal), directory, config, signal));
     report.contextHash = hash(report.snapshot);
     const prompt = reviewPrompt(report.snapshot);
     report.promptHash = hash(prompt);

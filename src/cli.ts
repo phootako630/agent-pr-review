@@ -7,11 +7,27 @@ import { probeNative } from './native-providers.js';
 import { resolveCodex, run } from './process.js';
 import { readJson, review } from './review.js';
 import { publish } from './publish.js';
+import { actionsGate, actionsReview, actionsPublish, dispatchReview } from './actions.js';
 
 const program = new Command().name('pr-review').description('Independent local PR review reports.').version(VERSION);
 const controller = new AbortController();
 process.once('SIGINT', () => controller.abort());
 process.once('SIGTERM', () => controller.abort());
+
+program.command('dispatch').argument('<pr-url>').description('Request the default-branch Actions review, including after GITHUB_TOKEN bot updates')
+  .action(async url => dispatchReview(url, AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)])));
+
+const actions = program.command('actions').description('Trusted hosted-workflow entry points');
+actions.command('gate').option('--config <path>', 'Trusted default-branch config', '.github/agent-review.json')
+  .option('--output <path>', 'Immutable event packet', '.pr-review/ci/packet')
+  .action(async o => actionsGate({ configPath: o.config, outputDirectory: o.output, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]) }));
+actions.command('review').option('--packet <path>', 'Gate packet', '.pr-review/ci/packet')
+  .option('--recovered <path>', 'Original report artifact when recovering')
+  .option('--output <path>', 'Report artifact directory', '.pr-review/ci/report')
+  .action(async o => actionsReview({ packetDirectory: o.packet, recoveredDirectory: o.recovered, outputDirectory: o.output, signal: controller.signal }));
+actions.command('publish').option('--report <path>', 'Verified report artifact', '.pr-review/ci/report')
+  .option('--output <path>', 'Publication diagnostics', '.pr-review/ci/publication')
+  .action(async o => actionsPublish({ reportDirectory: o.report, outputDirectory: o.output, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]) }));
 
 function integer(value: string): number {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new InvalidArgumentError('Expected a positive integer.');

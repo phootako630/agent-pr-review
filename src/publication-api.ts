@@ -22,8 +22,8 @@ export interface PublicationApi {
   update(id: number, body: string): Promise<void>;
 }
 
-export function githubPublicationApi(token: string, owner: string, repo: string, pr: number, signal: AbortSignal): PublicationApi {
-  const client = new Octokit({ auth: token, request: { signal, timeout: 30_000 }, retry: { enabled: false } });
+export function githubPublicationApi(token: string, owner: string, repo: string, pr: number, signal: AbortSignal, publisherKind: 'user' | 'github-actions' = 'user'): PublicationApi {
+  const client = new Octokit({ auth: token, request: { signal, timeout: 30_000, fetch: globalThis.fetch }, retry: { enabled: false } });
   const target = { owner, repo, pull_number: pr };
   const user = z.object({ id: z.number().int().positive(), login: z.string().max(100) });
   const reviewSchema = z.object({ id: z.number().int().positive(), user: user.nullable(), body: z.string().nullable(), commit_id: sha.nullable(), state: z.string(), html_url: z.string().url() });
@@ -42,7 +42,11 @@ export function githubPublicationApi(token: string, owner: string, repo: string,
     }
   }
   return {
-    identity: () => request(async () => user.parse((await client.rest.users.getAuthenticated()).data)),
+    // Installation tokens cannot call GET /user. This explicit mode is only for
+    // the standard Actions GITHUB_TOKEN, never an arbitrary App installation.
+    identity: () => request(async () => publisherKind === 'github-actions'
+      ? user.extend({ login: z.literal('github-actions[bot]'), type: z.literal('Bot') }).parse((await client.rest.users.getByUsername({ username: 'github-actions[bot]' })).data)
+      : user.parse((await client.rest.users.getAuthenticated()).data)),
     current: () => request(async () => {
       const data = z.object({ state: z.enum(['open', 'closed']), draft: z.boolean(), number: z.number().int().positive(),
         head: z.object({ sha }), base: z.object({ sha, repo: z.object({ full_name: z.string() }) }) }).parse((await client.rest.pulls.get(target)).data);

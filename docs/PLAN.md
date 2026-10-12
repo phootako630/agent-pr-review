@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: M1/M2 merged; M3 implemented on `feat/m3-github-publication`; M4 onward remain planned.
+Created: 2026-10-12. Status: M1–M3 merged; M4 implementation in progress on `feat/m4-actions-reviews`, hosted live acceptance pending merge/setup; M5 onward remain planned.
 
 ## Outcome
 
@@ -87,6 +87,10 @@ Acceptance:
 - Concurrent publishers are serialized per PR in CI; local publication uses a lock and remote reconciliation. Cross-machine races are documented until distributed locking exists.
 
 ### M4 — Automatic GitHub Actions reviews
+
+Implementation: default-branch `pull_request_target`/manual-dispatch workflow, immutable gate packet, cancelling reviewer jobs, separately serialized publishers, API-key secret isolation, pinned native installations, 30-day data-only artifacts, and durable commit-status publication intent. Repeated delivery uses snapshot/config/prompt/policy/tool/coordinator identity; pending intent forces original-report reconciliation even on a fresh runner. The user chose GitHub-hosted runners with provider API-key secrets. Model IDs and credential availability require operator setup; placeholders deliberately refuse execution. See `docs/ACTIONS.md`.
+
+Validation: local type-check/build and 50 tests pass, including transport-level durable-intent/recovery/rate-limit tests. Windows native protocol probes pass. Hosted Linux/Windows checks and live default-branch ready/update/draft/cancellation and actual author-bot credential tests remain pending. Do not mark M4 complete until this live pilot is recorded.
 
 Package the same CLI for automatic ready/updated PR reviews on trusted repository branches, plus manual retry. Use `opened`, `reopened`, `ready_for_review`, and `synchronize` events with a draft guard. Separate review execution from the step that has permission to publish. This is core MVP behavior, not an optional later deployment.
 
