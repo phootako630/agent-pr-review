@@ -3,6 +3,7 @@ import test from 'node:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { configSchema, resultSchema, snapshotSchema } from '../src/contracts.js';
 import { diffAnchors, parseRawDiff, validateFindings } from '../src/diff.js';
 import { parsePrUrl } from '../src/github.js';
@@ -47,6 +48,15 @@ test('findings require supported coordinates and exact code evidence', () => {
   assert.equal(resultSchema.safeParse({ ...result, findings: [{ ...finding, path: '../secret' }] }).success, false);
 });
 
+test('evidence must overlap the cited source line, including multiline evidence', () => {
+  const sample = { ...snapshot, files: [{ ...snapshot.files[0]!, after: 'const unrelated = 1;\nconst bug = true;\n', patch: '@@ -0,0 +1,2 @@\n+const unrelated = 1;\n+const bug = true;\n' }] };
+  const finding = { title: 'Example', severity: 'high', path: 'math.ts', side: 'RIGHT', line: 1, description: 'Example', trigger: 'Example', impact: 'Example', evidence: 'const bug = true;' };
+  const invalid = resultSchema.parse({ summary: 'Example', findings: [finding], limitations: [] });
+  assert.equal(validateFindings(invalid, sample).findings.length, 0);
+  const valid = resultSchema.parse({ ...invalid, findings: [{ ...finding, line: 2 }, { ...finding, line: 2, evidence: sample.files[0]!.after }] });
+  assert.equal(validateFindings(valid, sample).findings.length, 2);
+});
+
 test('budget exclusions are explicit and never silently truncate a file', () => {
   const limited = limitSnapshot({ ...snapshot, files: [snapshot.files[0]!, { ...snapshot.files[0]!, path: 'extra.ts' }] }, configSchema.parse({ maxFiles: 1 }));
   assert.equal(limited.files.length, 1);
@@ -71,7 +81,7 @@ test('subprocess cancellation and output caps terminate execution', async () => 
 test('offline fake run saves reports and never claims a clean live review', async () => {
   const output = await mkdtemp(join(tmpdir(), 'pr-review-test-'));
   try {
-    const { directory, report } = await review({ fixture: fixturePath.pathname.replace(/^\/([A-Za-z]:)/, '$1'), output, config: configSchema.parse({ reviewer: 'fake' }) });
+    const { directory, report } = await review({ fixture: fileURLToPath(fixturePath), output, config: configSchema.parse({ reviewer: 'fake' }) });
     assert.equal(report.mode, 'simulation');
     assert.equal(report.outcome, 'inconclusive');
     assert.equal(report.status, 'partial');
@@ -83,7 +93,7 @@ test('offline fake run saves reports and never claims a clean live review', asyn
 test('cancelled runs still leave an honest report', async () => {
   const output = await mkdtemp(join(tmpdir(), 'pr-review-cancel-'));
   try {
-    const { report } = await review({ fixture: fixturePath.pathname.replace(/^\/([A-Za-z]:)/, '$1'), output, config: configSchema.parse({ reviewer: 'fake' }), signal: AbortSignal.abort() });
+    const { report } = await review({ fixture: fileURLToPath(fixturePath), output, config: configSchema.parse({ reviewer: 'fake' }), signal: AbortSignal.abort() });
     assert.equal(report.status, 'cancelled');
     assert.equal(report.outcome, 'inconclusive');
     assert.equal(report.result, null);

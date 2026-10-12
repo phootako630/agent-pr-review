@@ -23,6 +23,8 @@ test('real Git snapshots retain captured SHAs and handle renames, deletions, bin
     await git(['rm', 'deleted.ts']);
     await writeFile(join(root, 'binary.bin'), Buffer.from([0, 1, 2]));
     await writeFile(join(root, 'huge.ts'), 'x'.repeat(2000));
+    await writeFile(join(root, 'a[1].ts'), 'export const literal = true;\n');
+    await writeFile(join(root, 'a1.ts'), 'export const other = true;\n');
     await git(['add', '.']);
     const linkOid = (await git(['hash-object', '-w', '--stdin'], '../secret')).trim();
     await git(['update-index', '--add', '--cacheinfo', `120000,${linkOid},link.ts`]);
@@ -33,7 +35,10 @@ test('real Git snapshots retain captured SHAs and handle renames, deletions, bin
     await writeFile(join(root, 'new name.ts'), 'uncommitted and wrong\n');
     const snapshot = await readGitSnapshot(join(root, '.git'), base, head, configSchema.parse({ maxFileBytes: 1024, contextFiles: ['context.ts', 'missing.ts'] }), signal);
     assert.equal(snapshot.mergeBaseSha, base);
-    assert.equal(snapshot.totalChangedFiles, 6);
+    assert.equal(snapshot.totalChangedFiles, 8);
+    const literal = snapshot.files.find(f => f.path === 'a[1].ts');
+    assert.match(literal?.patch ?? '', /literal = true/);
+    assert.ok(!literal?.patch.includes('other = true'), 'literal filename must not select another path');
     const renamed = snapshot.files.find(f => f.path === 'new name.ts');
     assert.equal(renamed?.previousPath, 'old name.ts');
     assert.match(renamed?.after ?? '', /const a = 9/);

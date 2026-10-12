@@ -8,6 +8,7 @@ import { baseEnvironment, ProcessError, run } from './process.js';
 export function gitEnvironment(token?: string): NodeJS.ProcessEnv {
   return {
     ...baseEnvironment(),
+    GIT_LITERAL_PATHSPECS: '1',
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
     GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: token ? '2' : '1',
     GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',

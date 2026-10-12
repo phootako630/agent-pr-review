@@ -45,9 +45,23 @@ export function validateFindings(result: ReviewResult, snapshot: Snapshot): Revi
     repoPath.parse(finding.path);
     const file = snapshot.files.find(f => f.kind === 'change' && f.path === finding.path);
     const source = finding.side === 'LEFT' ? file?.before : file?.after;
-    const valid = file && source && diffAnchors(file.patch)[finding.side].has(finding.line) && source.includes(finding.evidence);
+    const valid = file && source && diffAnchors(file.patch)[finding.side].has(finding.line) && evidenceAtLine(source, finding.evidence, finding.line);
     if (valid) findings.push(finding);
-    else limitations.push(`Rejected finding "${finding.title}": invalid diff anchor or evidence absent from the supplied source.`);
+    else limitations.push(`Rejected finding "${finding.title}": invalid diff anchor or evidence does not overlap the cited source line.`);
   }
   return { ...result, findings, limitations };
+}
+
+function evidenceAtLine(source: string, evidence: string, line: number): boolean {
+  if (!evidence.trim()) return false;
+  const lines = source.split('\n');
+  const text = lines[line - 1];
+  if (text === undefined) return false;
+  const start = lines.slice(0, line - 1).reduce((sum, value) => sum + value.length + 1, 0);
+  const end = start + text.replace(/\r$/, '').length;
+  if (start === end) return false;
+  for (let at = source.indexOf(evidence); at !== -1; at = source.indexOf(evidence, at + 1)) {
+    if (at < end && at + evidence.length > start) return true;
+  }
+  return false;
 }

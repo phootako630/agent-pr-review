@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: M1 implementation underway; later milestones remain planned.
+Created: 2026-10-12. Status: M1 implemented on `feat/m1-local-review`; later milestones remain planned.
 
 ## Outcome
 
@@ -37,6 +37,8 @@ Each milestone is a reviewable vertical slice. Finish and validate one before ex
 Deliver CLI argument handling, configuration validation, `doctor`, PR metadata retrieval, fixed source snapshot, diff parser, a Codex adapter, versioned finding validation, and Markdown/JSON reports. Introduce a fake adapter for offline development.
 
 Implementation scope: packet-only Codex review with explicit related-file inclusion. Autonomous source browsing is deferred. Pin the tested Codex CLI protocol to 0.162.1; require an explicit accessible model ID. Use a bare Git snapshot to avoid repository hooks/filters and GitHub patch truncation. See README for commands and partial-run exit codes.
+
+Validation: local type-check/build and 17 automated tests pass. Linux and Windows CI passed on the initial implementation PR. Codex 0.162.1 with `gpt-6.1-sol` identified a seeded bug and reviewed real PR #1 at captured head `eefb0028f67f6a2dcc39144b07b10de8dbb61f9e`, covering all 21 changed files. Its two findings (literal Git pathspec handling and evidence/line overlap) were reproduced with failing tests and fixed. The report correctly remained partial because the provider declared context limitations. See PR checks for the latest revision's validation status.
 
 Acceptance:
 
