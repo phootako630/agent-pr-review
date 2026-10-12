@@ -65,4 +65,6 @@ The publisher needs `contents: read`, `pull-requests: write`, `statuses: write`,
 
 Automated transport tests cover missing credentials, event/ref/fork guards, policy/source identity, rate-limited reads/reservations, untrusted artifact workflows/revisions, lost reservation/create/receipt responses, fresh-runner recovery, changed-report uncertainty, and repeat delivery. Existing provider integration fixtures cover timeouts and partial peers; publication fixtures cover stale SHAs and inline reconciliation. Native protocol probes run on Linux and Windows without credentials/model calls.
 
+An independent Codex packet review identified a gate-parser serialization defect: rebuilding a snapshot in schema field order changed its exact JSON hash. A regression test reproduced the mismatch; validation now preserves the original captured object and verifies gate integrity before review. CI also compares the actual full native version strings with the hosted configuration's version pins, rather than merely printing versions.
+
 Live automatic ready/update/draft/cancellation/bot-dispatch tests remain **pending** until this workflow is merged, API model IDs are configured, and secrets are supplied. Local M2/M3 browser-auth and publication runs do not count as hosted API validation. Do not mark M4 acceptance complete until the live pilot is recorded.

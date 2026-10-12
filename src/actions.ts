@@ -25,9 +25,21 @@ const manifestSchema = z.strictObject({
 });
 type Manifest = z.infer<typeof manifestSchema>;
 export type Intent = { state: 'pending' | 'success'; publicationId: string; deliveryKey: string; runId: number; attempt: number };
-const gateSchema = z.strictObject({ snapshot: snapshotSchema, manifest: manifestSchema, recovery: z.object({
+const gateSchema = z.strictObject({ snapshot: snapshotSchema, manifest: manifestSchema, recovery: z.strictObject({
   state: z.enum(['pending', 'success']), publicationId: digest, deliveryKey: digest, runId: positive, attempt: positive, coordinatorSha: sha,
 }).nullable() });
+export function parseGatePacket(input: unknown): z.infer<typeof gateSchema> {
+  const validated = gateSchema.parse(input);
+  // M2 hashes JSON.stringify(packet), so validation must not rebuild the
+  // captured snapshot in schema field order at this serialization boundary.
+  const packet = input as z.infer<typeof gateSchema>;
+  if (!same(validated.manifest.config, packet.manifest.config) || packet.manifest.repository !== packet.snapshot.repository
+    || packet.manifest.pr !== packet.snapshot.pr || hash(packet.snapshot) !== packet.manifest.contextHash
+    || snapshotIdentity(packet.snapshot) !== packet.manifest.snapshotKey
+    || deliveryIdentity(packet.snapshot, packet.manifest.config, packet.manifest.policy, packet.manifest.source.coordinatorSha) !== packet.manifest.deliveryKey)
+    throw new Error('Gate packet identity or configuration is inconsistent.');
+  return packet;
+}
 
 export function snapshotIdentity(s: Snapshot): string {
   return stableHash({ repository: s.repository, pr: s.pr, url: s.url, headSha: s.headSha, baseSha: s.baseSha, mergeBaseSha: s.mergeBaseSha });
@@ -140,7 +152,7 @@ export async function actionsGate(options: { configPath: string; outputDirectory
 }
 
 export async function actionsReview(options: { packetDirectory: string; recoveredDirectory?: string; outputDirectory: string; signal: AbortSignal }) {
-  const gate = gateSchema.parse(await readJson(join(options.packetDirectory, 'gate.json')));
+  const gate = parseGatePacket(await readJson(join(options.packetDirectory, 'gate.json')));
   const directory = resolve(options.outputDirectory); await mkdir(directory, { recursive: true });
   if (gate.recovery) {
     if (!options.recoveredDirectory) throw new Error('Original report artifact is required for recovery. An expired or missing artifact requires operator inspection.');

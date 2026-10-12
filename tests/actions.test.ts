@@ -1,13 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { configSchema, snapshotSchema } from '../src/contracts.js';
-import { deliveryIdentity, eligibility, eventPr, missingCredentials, parseIntent, snapshotIdentity, statusContext } from '../src/actions.js';
+import { configSchema, hash, snapshotSchema, VERSION } from '../src/contracts.js';
+import { deliveryIdentity, eligibility, eventPr, missingCredentials, parseGatePacket, parseIntent, snapshotIdentity, statusContext } from '../src/actions.js';
 
 const snapshot = snapshotSchema.parse(JSON.parse(await readFile(new URL('./fixtures/pr.json', import.meta.url), 'utf8')));
 const repo = 'owner/repo';
 const event = { repository: { full_name: repo, default_branch: 'main' }, action: 'synchronize',
   pull_request: { number: 42, head: { sha: '1'.repeat(40) } } };
+
+test('gate packet parsing preserves captured snapshot serialization across job boundaries', () => {
+  // Real capturePr appends totalChangedFiles after files/exclusions. Existing
+  // fixtures were schema-parsed first, masking this property-order difference.
+  const { totalChangedFiles, ...fields } = snapshot;
+  const captured = { ...fields, totalChangedFiles };
+  const config = configSchema.parse({ reviewer: 'codex', model: 'model' }), policy = { allowPartial: true, maxComments: 10 }, coordinatorSha = '3'.repeat(40);
+  const packet = { snapshot: captured, recovery: null, manifest: { schemaVersion: 1, repository: snapshot.repository, pr: snapshot.pr,
+    source: { runId: 123, attempt: 1, coordinatorSha }, snapshotKey: snapshotIdentity(captured), deliveryKey: deliveryIdentity(captured, config, policy, coordinatorSha),
+    contextHash: hash(captured), config, policy, toolVersion: VERSION } };
+  const decoded = parseGatePacket(JSON.parse(JSON.stringify(packet)));
+  assert.equal(hash(decoded.snapshot), decoded.manifest.contextHash);
+  assert.equal(deliveryIdentity(decoded.snapshot, decoded.manifest.config, decoded.manifest.policy, coordinatorSha), decoded.manifest.deliveryKey);
+  assert.equal(JSON.stringify(decoded.snapshot), JSON.stringify(captured));
+});
 
 test('ready/update event retains explicit PR head, never event merge SHA; manual input is numeric', () => {
   for (const action of ['opened', 'reopened', 'ready_for_review', 'synchronize'])

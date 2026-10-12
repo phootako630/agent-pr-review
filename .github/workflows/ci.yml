@@ -28,4 +28,4 @@ jobs:
           npm ci --ignore-scripts --prefix tools/agents
           node tools/agents/bootstrap.mjs
           export PATH="$PWD/tools/agents/native:$PWD/tools/agents/node_modules/.bin:$PATH"
-          node --input-type=module -e "import { probeCodex } from './dist/provider.js'; import { probeNative } from './dist/native-providers.js'; const s = AbortSignal.timeout(30000); console.log(await probeCodex(s)); console.log(await probeNative('claude', s)); console.log(await probeNative('grok', s));"
+          node tools/check-agent-protocols.mjs
