@@ -10,5 +10,6 @@ Checked during planning on 2026-10-12. Recheck installed CLI versions and suppor
 | GitHub | [Pull request reviews](https://docs.github.com/en/rest/pulls/reviews) | Comment-only reviews bound to a commit |
 | GitHub | [Review comments](https://docs.github.com/en/rest/pulls/comments) | Inline anchors, comment reads and updates |
 | GitHub Actions | [Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use) | Workflow trust boundaries and credentials |
+| GitHub Actions | [Workflow events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request) | Ready/updated PR triggers and event delivery constraints |
 
 These sources establish integration primitives. The cross-review algorithm, deadlines, publication criteria, and milestones are design choices for this project, not vendor guarantees.

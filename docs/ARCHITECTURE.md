@@ -2,15 +2,17 @@
 
 ## Components
 
-The coordinator owns snapshots, run state, routing, deadlines, and publication. Provider adapters run the native agents and translate their outputs into a common schema. Agents can inspect source context but cannot publish directly.
+The coordinator owns snapshots, run state, routing, deadlines, publication, and handoff records. Reviewer adapters run agents and normalize their findings. Author handoffs carry those findings to the existing local or cloud coding session. Review and assessment are read-only; the human decides before rework. GitHub is the shared review workspace.
 
 | Component | Responsibility |
 | --- | --- |
 | PR snapshot | Capture PR metadata, base/head revisions, merge base, source, diff, and coverage |
 | Provider adapter | Check capabilities, launch agent, constrain tools, parse output, handle cancellation |
-| Review pipeline | Independent review, normalization, deduplication, cross-validation, filtering |
+| Review pipeline | Independent review, normalization, deduplication, filtering, optional cross-validation |
 | Report store | Persist versioned JSON, Markdown, provenance, errors, and publication journal |
 | GitHub publisher | Validate freshness/anchors, reconcile existing comments, publish eligible findings |
+| Author handoff | Export assessment requests and validate returned author dispositions |
+| Human decision log | Record authenticated, scoped decisions and export approved rework packets |
 
 Proposed adapter operations are `probe`, `review`, and `verify`, each with a deadline and cancellation signal. The coordinator validates all returned data. Prefer schema-constrained output where supported; fail explicitly rather than extracting arbitrary prose as trusted findings.
 
@@ -34,29 +36,48 @@ The implementation will version and validate these contracts before execution an
 
 `PublicationRecord`: finding fingerprint, reviewed SHA, report/policy hash, publisher identity, remote review/comment IDs, operation state, and timestamps. Stable hidden markers allow remote reconciliation after interrupted requests.
 
+`AuthorContext`: explicitly configured provider, local/cloud execution mode, optional session reference, PR intent, and transport capability. A provider name does not imply access to its original session. Record whether assessment came from the original session or a fresh session with a handoff.
+
+`AuthorAssessment`: snapshot and packet hashes, findings/comment versions, author identity, and one disposition per finding: `accept`, `disagree`, or `needs_human_decision`. Include proposed fix scope, evidence, tradeoffs, and questions. Importing this record never authorizes code changes.
+
+`HumanDecision`: authenticated actor, repository/PR, reviewed SHA, assessment hash, finding versions, per-finding `approve_fix`, `dismiss`, or `defer`, proposal scope, and timestamp. Record append-only history and verify maintainer authorization. New revisions or changed proposals invalidate pending execution authorization; prior decisions remain historical evidence.
+
+`RevisionVerification`: previous finding/decision references, new snapshot, verdict (`verified_fixed`, `still_present`, `cannot_verify`), and code/test evidence. Approval to fix and evidence of a completed fix are separate states.
+
 All paths must remain within the snapshot root. Check line ranges against the correct side of the captured diff. Reject unexpected fields where they can affect execution; model output is never shell code or an unrestricted API request.
 
 ## Run lifecycle
 
 ```text
-snapshot -> independent_review -> normalize -> cross_validate -> report
+PR ready/update -> snapshot -> independent reviews -> filter -> publish
                                                                |
-                                              explicit publish/policy
                                                                v
-                                            freshness_check -> reconcile -> publish
+assessment handoff -> author proposals -> awaiting human decision
+                                               |
+                                   scoped approved rework packet
+                                               |
+                               user directs existing coding agent
+                                               |
+                                   revision pushed -> verify/review
 ```
 
 Each stage records success, failure, timeout, or skipped state. A zero-finding result counts as clean only when the requested review coverage completed. Partial runs remain usable as local reports; automated publication requires a complete run by default.
 
 Use bounded concurrency, provider-specific retry rules, and one overall deadline. Do not retry authentication failures as transient errors. Preserve completed stages for inspection; later resumability may reuse them only when snapshot, config, tool version, and prompt hashes match.
 
+The deadline applies to one review run, not human waiting. Assessment and decisions persist as separate stages; no worker stays running while waiting for approval. Human decisions are initially recorded through an authenticated CLI and published as an audit entry on GitHub. Free-form comments, reactions, bot responses, and timeout do not count as authorization. A later GitHub command interface must implement actor authorization and snapshot binding before it can accept decisions.
+
+Version 0.1 exports packets and imports assessments without claiming universal session automation. The original author is asked to assess only and wait. The user forwards the approved packet for execution through their existing tool. The coordinator can enforce its own read-only behavior and packet validity; it cannot control an unrelated agent operated outside it.
+
 ## Cross-validation and selection
 
-All reviewers start with the same snapshot and context policy, without seeing one another's outputs. Deduplicate candidates conservatively by root cause, code anchor, and trigger; preserve all originating providers. Route each candidate to a different provider for verification, selecting a non-originating provider when available. Hide unnecessary provider identity from the verifier to reduce brand bias.
+All reviewers start with the same snapshot and context policy, without seeing one another's outputs. When an author provider is known, default to the other two providers; never reuse the author session as an independent reviewer. Deduplicate candidates conservatively by root cause, code anchor, and trigger; preserve all originating providers. Optional cross-validation routes candidates to another provider in at most one pass, hiding unnecessary provider identity to reduce brand bias.
 
-Eligible findings describe a change-introduced defect, a concrete trigger, observable impact, valid source evidence, and independent support. Stylistic preferences without a documented requirement are excluded. Evidence disputes or unavailable verification remain in the local report for human inspection. A majority vote alone cannot qualify a finding.
+Eligible findings describe a change-introduced defect, a concrete trigger, observable impact, and valid source evidence. A second reviewer endorsement is optional. Stylistic preferences without a documented requirement are excluded. Conflicting evidence is clearly marked in the decision summary for human inspection rather than presented as a confirmed defect. A majority vote alone cannot qualify a finding.
 
 Group findings by root cause and cap the number of published comments. Summaries explain coverage, unavailable providers, exclusions, and unresolved disagreements. Do not automatically approve, request changes, repair code, or merge in version 0.1.
+
+The author must assess every published finding: acceptance includes a proposed fix, disagreement includes evidence, and ambiguity includes a concrete human question. Disagreement does not close a finding. Human dismissal records an accepted decision, not proof that the reviewer was wrong. Following a revision, examine prior findings and the new diff; do not equate failure to rediscover a finding with a verified fix.
 
 ## Publication semantics
 
@@ -68,8 +89,9 @@ Keep findings that cannot be anchored in a summary. GitHub line comments require
 
 ## Deployment progression
 
-1. Local CLI with file artifacts and explicit publication.
-2. GitHub Actions runs the same CLI, with PR-level concurrency and separate publishing permissions.
-3. A GitHub App with webhook ingestion, queue, durable storage, and distributed locks if multi-repository demand justifies it.
+1. Build and test the CLI engine locally, with file artifacts and explicit publication.
+2. Ship the MVP with automatic GitHub Actions review, PR-level concurrency, and separate publishing permissions. Review ready PRs when opened, reopened, marked ready, or updated; skip drafts and untrusted forks under the initial policy. Retain CI artifacts and expose durable findings and decisions on GitHub.
+3. Use portable handoffs to local/cloud author sessions, authenticated human decisions, and user-directed approved rework. Add automatic author transport only for verified provider capabilities.
+4. Add a GitHub App, webhook ingestion, queue, database, and distributed locks if multi-repository demand justifies them.
 
-The native CLI orchestration approach is the agreed project direction. A hosted agent framework is not required for the initial finite two-round workflow.
+Native CLI reviewer adapters can run in CI as well as locally when supported credentials are configured. The original author can remain in its existing environment. Verify actual bot-created PR event delivery during integration; a workflow-created event is not assumed to trigger another workflow under every credential type. The MVP needs no dedicated application server or dashboard.
