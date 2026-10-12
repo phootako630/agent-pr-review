@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: M1 merged; M2 implemented on `feat/m2-independent-reviewers`; M3 onward remain planned.
+Created: 2026-10-12. Status: M1/M2 merged; M3 implemented on `feat/m3-github-publication`; M4 onward remain planned.
 
 ## Outcome
 
@@ -63,6 +63,8 @@ Acceptance:
 - Model identifiers and CLI versions are configurable and recorded, not guessed by the coordinator.
 
 ### M3 — Evidence filtering and reliable GitHub comments
+
+Implementation: schema-v2 report integrity checks, conservative exact-claim grouping, held-candidate/conflict provenance, source revalidation, comment-only reviews, per-PR local locks, atomic journals, owned-marker reconciliation, and explicit partial-report opt-in. Live dedicated PR #3 validated an inline comment/summary, simulated lost-response recovery, repeat publication, and stale-head refusal. The isolated Git environment explicitly enables long paths on Windows. See `docs/PUBLICATION.md` for recovery and concurrency boundaries.
 
 Normalize findings, identify duplicates conservatively, validate evidence and anchors, and publish comments. Retain provider provenance and conflicting claims. Optional cross-validation can enrich results later but is not required for the core handoff workflow.
 

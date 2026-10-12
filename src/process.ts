@@ -9,6 +9,7 @@ export class ProcessError extends Error {
 }
 
 export function failureHint(diagnostic: string): string {
+  if (/Filename too long|\$GIT_DIR.*too big/i.test(diagnostic)) return 'Temporary Git path exceeds the supported path length. Use a shorter output or publication state directory.';
   if (/git.bash|CLAUDE_CODE_GIT_BASH_PATH/i.test(diagnostic)) return 'Claude Code requires Git Bash on Windows. Set CLAUDE_CODE_GIT_BASH_PATH to its bash.exe.';
   if (/model.{0,150}(not supported|not found|does not exist)/i.test(diagnostic)) return 'The model is unavailable for this account. Choose an accessible --model and check your Codex CLI version.';
   if (/401|unauthorized|authentication|login required|Invalid API key/i.test(diagnostic)) return 'Authentication failed. Check the failing tool’s login or API key and configured auth mode.';

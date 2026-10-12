@@ -6,6 +6,7 @@ import { probeCodex } from './provider.js';
 import { probeNative } from './native-providers.js';
 import { resolveCodex, run } from './process.js';
 import { readJson, review } from './review.js';
+import { publish } from './publish.js';
 
 const program = new Command().name('pr-review').description('Independent local PR review reports.').version(VERSION);
 const controller = new AbortController();
@@ -53,6 +54,22 @@ program.command('doctor').description('Check local tools and authentication with
     }
     console.log(options.json ? JSON.stringify({ checks }, null, 2) : checks.map(c => `${c.ok ? 'OK' : 'FAIL'} ${c.name}: ${c.detail}`).join('\n'));
     if (checks.some(c => !c.ok)) process.exitCode = 1;
+  });
+
+program.command('publish').argument('<report>', 'Path to report.json')
+  .description('Publish evidence-qualified findings as a comment-only GitHub review')
+  .option('--dry-run', 'Revalidate live source and save a preview without GitHub writes')
+  .option('--allow-partial', 'Explicitly publish a partial report with its limitations visible')
+  .option('--max-comments <n>', 'Maximum inline comments, 1–50', integer, 20)
+  .option('--state-dir <path>', 'Shared local lock/journal directory', '.pr-review/publications')
+  .option('--output-dir <path>', 'Plan/preview directory; defaults to report directory')
+  .option('--timeout-seconds <n>', 'Overall publication deadline', integer, 180)
+  .action(async (reportPath, options) => {
+    if (options.timeoutSeconds < 5 || options.timeoutSeconds > 3600) throw new Error('Publication timeout must be 5–3600 seconds.');
+    const result = await publish({ reportPath, stateDirectory: options.stateDir, outputDirectory: options.outputDir,
+      allowPartial: !!options.allowPartial, maxComments: options.maxComments, dryRun: !!options.dryRun,
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(options.timeoutSeconds * 1000)]) });
+    console.log(`${result.status.toUpperCase()}: ${result.plan.comments.length} inline findings; ${result.plan.normalized.candidates.filter(c => c.disposition === 'held').length} held.\n${result.journal?.reviewUrl ?? 'Preview saved; no GitHub writes.'}`);
   });
 
 program.command('review').argument('[pr-url]', 'https://github.com/owner/repo/pull/123')

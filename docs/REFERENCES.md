@@ -19,3 +19,9 @@ These sources establish integration primitives. The cross-review algorithm, dead
 - [Grok CLI reference](https://docs.x.ai/build/cli/reference): headless commands and browser login.
 - [Grok settings reference](https://docs.x.ai/build/settings/reference): GROK_HOME, credential selection, compatibility discovery, permission rules.
 - [Official Windows Grok installer](https://x.ai/cli/install.ps1): native release artifact and version discovery. Live integration inspected Grok 1.0.50 help for prompt-file, tools, and JSON-schema flags.
+
+## M3 publication references
+
+- [Create/list pull request reviews](https://docs.github.com/en/rest/pulls/reviews): explicit commit ID, COMMENT event, grouped inline comments, and remote review state.
+- [List/update review comments](https://docs.github.com/en/rest/pulls/comments): publisher ownership, original commit/line, reply identity, and body updates.
+- These API primitives do not provide a cross-machine publication lock. Local journals, source revalidation, conservative grouping, uncertain-outcome handling, and the default partial-report policy are project decisions.

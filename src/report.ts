@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Report } from './contracts.js';
+import { normalize, renderNormalized } from './normalize.js';
 
 function escape(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/[\\`*_\[\]#|]/g, '\\$&');
@@ -38,10 +39,12 @@ export function renderReport(report: Report): string {
   }
   if (!report.providers.length) lines.push('No valid review result is available.');
   if (report.errors.length) lines.push('', '## Errors', '', ...report.errors.map(e => `- ${escape(e)}`));
+  lines.push('', renderNormalized(normalize(report)));
   return lines.join('\n') + '\n';
 }
 
 export async function saveReport(directory: string, report: Report): Promise<void> {
   await writeFile(join(directory, 'report.json'), JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
   await writeFile(join(directory, 'report.md'), renderReport(report), { mode: 0o600 });
+  await writeFile(join(directory, 'normalized-findings.json'), JSON.stringify(normalize(report), null, 2) + '\n', { mode: 0o600 });
 }
