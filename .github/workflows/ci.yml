@@ -22,3 +22,10 @@ jobs:
       - run: npm run check
       - run: npm run build
       - run: npm test
+      - name: Verify pinned native CLI protocols (no credentials or model calls)
+        shell: bash
+        run: |
+          npm ci --ignore-scripts --prefix tools/agents
+          node tools/agents/bootstrap.mjs
+          export PATH="$PWD/tools/agents/native:$PWD/tools/agents/node_modules/.bin:$PATH"
+          node tools/check-agent-protocols.mjs

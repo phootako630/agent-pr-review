@@ -63,6 +63,7 @@ async function guardPriorCreates(state: string, plan: PublicationPlan): Promise<
 export async function executePublication(options: {
   report: Report; policy: Policy; api: PublicationApi; stateDirectory: string; outputDirectory: string;
   capture: (directory: string) => Promise<Snapshot>; signal: AbortSignal; dryRun?: boolean;
+  reconcileOnly?: boolean; beforeCreate?: (plan: PublicationPlan) => Promise<void>;
 }): Promise<{ plan: PublicationPlan; journal: Journal | null; status: 'dry_run' | 'published' | 'reconciled' }> {
   const report = parseReport(options.report);
   const plan = publicationPlan(report, options.policy);
@@ -119,11 +120,15 @@ export async function executePublication(options: {
     const missing = plan.comments.filter(c => !findComment(listed.comments, publisher, plan, c));
     if (review && missing.length) throw new Error('Owned review exists but some expected comments are missing. No repeat create was sent; inspect deletion or delayed remote visibility.');
     if (!review) {
+      if (options.reconcileOnly) throw new Error('Durable publication intent exists but the review is not visible. No repeat create was sent. Recover the original run and inspect GitHub before clearing uncertainty.');
       await guardPriorCreates(state, plan);
+      await ensureFresh();
+      await options.beforeCreate?.(plan);
       await ensureFresh();
       journal.status = 'sending'; journal.attemptedCreate = true; await persist();
       try {
         const created = await options.api.create(plan.summary, missing, plan.target.headSha);
+        if (created.userId !== publisher.id) throw new Error('Create response publisher identity does not match the configured publisher.');
         journal.reviewId = created.id; journal.reviewUrl = created.url; await persist(); wroteReview = true;
       } catch (error) {
         if (error instanceof PublicationApiError && !error.ambiguous) { journal.status = 'prepared'; journal.attemptedCreate = false; }

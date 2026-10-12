@@ -101,6 +101,8 @@ Keep findings that cannot be anchored in a summary. GitHub line comments require
 
 ## Deployment progression
 
+M4 separates trusted default-branch gate, reviewer, and publisher jobs. Review cancellation and publication serialization use distinct PR-specific concurrency groups. Before a new review POST, a durable pending commit status references the report artifact and publication/delivery identity; recovery on a fresh runner reuses the original report and refuses another create. Artifacts expire after 30 days, but uncertainty remains visible on GitHub and blocks automatic retry. Hosted execution uses API-key secrets supplied only to the review step. See `ACTIONS.md` for source-origin verification, dispatch fallback, retention, and live acceptance status.
+
 1. Build and test the CLI engine locally, with file artifacts and explicit publication.
 2. Ship the MVP with automatic GitHub Actions review, PR-level concurrency, and separate publishing permissions. Review ready PRs when opened, reopened, marked ready, or updated; skip drafts and untrusted forks under the initial policy. Retain CI artifacts and expose durable findings and decisions on GitHub.
 3. Use portable handoffs to local/cloud author sessions, authenticated human decisions, and user-directed approved rework. Add automatic author transport only for verified provider capabilities.

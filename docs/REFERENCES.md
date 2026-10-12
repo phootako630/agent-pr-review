@@ -2,6 +2,13 @@
 
 Checked during planning on 2026-10-12. Recheck installed CLI versions and supported flags during implementation; examples in README describe our intended CLI, not existing vendor commands.
 
+M4 references checked 2026-10-12:
+
+- [Securely using pull_request_target](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target): trusted workflow context; never build/execute PR code with secrets.
+- [Triggering workflows, including GITHUB_TOKEN exceptions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow): explicit dispatch fallback; some PR events can require approval under current rules.
+- [Commit statuses REST API](https://docs.github.com/en/rest/commits/statuses): durable publication reservation/receipt; separate statuses read/write permission.
+- [Actions artifact upload](https://github.com/actions/upload-artifact), [download](https://github.com/actions/download-artifact): pinned v4 revisions and explicit retention/data selection.
+
 | Area | Official source | Relevance |
 | --- | --- | --- |
 | Codex | [Non-interactive mode](https://developers.openai.com/codex/noninteractive) | Programmatic CLI execution and structured output |
