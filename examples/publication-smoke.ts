@@ -1,2 +1,2 @@
-// Dedicated publisher smoke fixture. Do not merge this intentional regression.
-export const add = (a: number, b: number): number => a - b;
+// Dedicated publisher smoke fixture; corrected revision. Do not merge.
+export const add = (a: number, b: number): number => a + b;
