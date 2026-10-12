@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { Report, Snapshot } from './contracts.js';
@@ -45,6 +45,19 @@ function findComment(comments: RemoteComment[], publisher: Publisher, plan: Publ
   const found = matches[0];
   if (found && (found.originalCommitId !== plan.target.headSha || found.path !== desired.path || found.originalSide !== desired.side || found.originalLine !== desired.line)) throw new Error('Owned finding marker has an unexpected original commit or anchor.');
   return found;
+}
+
+async function guardPriorCreates(state: string, plan: PublicationPlan): Promise<void> {
+  for (const filename of await readdir(state)) {
+    if (!/^[a-f0-9]{64}\.json$/.test(filename) || filename === `${plan.publicationId}.json`) continue;
+    let prior: Journal;
+    try { prior = journalSchema.parse(await readJson(join(state, filename), 128_000)); }
+    catch { throw new Error('A prior publication journal is invalid. Inspect the PR state directory before creating another review.'); }
+    if (filename !== `${prior.publicationId}.json` || prior.repository.toLowerCase() !== plan.target.repository.toLowerCase() || prior.pr !== plan.target.pr) throw new Error('A prior publication journal has an inconsistent PR identity.');
+    if (prior.snapshotKey === plan.snapshotKey && prior.attemptedCreate && prior.status !== 'complete') {
+      throw new Error(`An unresolved prior publication exists for this PR snapshot (${prior.publicationId}). Reconcile that report with its original policy before creating a new publication; changing the report or comment budget does not reset uncertainty.`);
+    }
+  }
 }
 
 export async function executePublication(options: {
@@ -106,6 +119,7 @@ export async function executePublication(options: {
     const missing = plan.comments.filter(c => !findComment(listed.comments, publisher, plan, c));
     if (review && missing.length) throw new Error('Owned review exists but some expected comments are missing. No repeat create was sent; inspect deletion or delayed remote visibility.');
     if (!review) {
+      await guardPriorCreates(state, plan);
       await ensureFresh();
       journal.status = 'sending'; journal.attemptedCreate = true; await persist();
       try {

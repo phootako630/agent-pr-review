@@ -37,12 +37,13 @@ class GitHubMemory implements PublicationApi {
   storedReviews: RemoteReview[] = []; storedComments: RemoteComment[] = [];
   creates = 0; updates: number[] = []; loseCreateResponse = false; loseWithoutCreating = false; loseUpdateResponse = false;
   mutateAfterCreate = false;
+  invisible = false;
   pr: CurrentPr;
   constructor(snapshot: Snapshot) { this.pr = { state: 'open', draft: false, repository: snapshot.repository, pr: snapshot.pr, headSha: snapshot.headSha, baseSha: snapshot.baseSha }; }
   async identity() { return { id: 1, login: 'publisher' }; }
   async current() { return structuredClone(this.pr); }
-  async reviews() { return structuredClone(this.storedReviews); }
-  async comments() { return structuredClone(this.storedComments); }
+  async reviews() { return this.invisible ? [] : structuredClone(this.storedReviews); }
+  async comments() { return this.invisible ? [] : structuredClone(this.storedComments); }
   async create(body: string, comments: PlannedComment[], headSha: string) {
     this.creates++;
     if (this.loseWithoutCreating) throw new PublicationApiError(true, null);
@@ -132,6 +133,21 @@ test('an unresolved create timeout never triggers another create request', async
     await assert.rejects(executePublication(options), /not confirmed/);
     await assert.rejects(executePublication(options), /No create retry/);
     assert.equal(api.creates, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('changing policy or report cannot bypass a prior invisible create intent for the same PR snapshot', async () => {
+  const { root, api, options } = await setup();
+  try {
+    api.loseCreateResponse = true; api.invisible = true;
+    await assert.rejects(executePublication(options), /not confirmed/);
+    await assert.rejects(executePublication({ ...options, policy: { ...policy, maxComments: 1 } }), /prior publication/);
+    await assert.rejects(executePublication({ ...options, report: { ...options.report, runId: 'new-run' } }), /prior publication/);
+    assert.equal(api.creates, 1); assert.equal(api.storedComments.length, 1);
+    api.invisible = false;
+    assert.equal((await executePublication(options)).journal?.status, 'complete');
+    await executePublication({ ...options, policy: { ...policy, maxComments: 1 } });
+    assert.equal(api.creates, 2); assert.equal(api.storedComments.length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

@@ -44,6 +44,8 @@ After an ambiguous create error, the publisher queries the review/comment lists.
 
 If a known review marker exists but expected comments are missing, or duplicate/incorrect owned markers exist, publication stops for inspection. A lost PATCH response is recovered by reading the owned comment body on the next invocation. Authentication/validation failures with a definite negative response are surfaced without automatic retry.
 
+Create uncertainty is checked across the PR's journals for the same snapshot, not only the current report ID. Changing the comment budget, policy, or report does not permit a second POST while an older create intent for that snapshot remains unresolved. Reconcile the original report with its original policy first. A different reviewed head/base is a separate historical snapshot; its findings are not silently mapped onto the earlier one.
+
 Do not discard an uncertain journal until the remote outcome is verified. If a publisher crashes, its local lock may remain; verify no publisher is active before removing `publisher.lock`. Changing working directories requires a shared `--state-dir` to share locks/journals.
 
 ## Concurrency boundary
