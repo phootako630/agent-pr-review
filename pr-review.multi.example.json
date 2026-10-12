@@ -1,0 +1,14 @@
+{
+  "reviewers": [
+    { "name": "codex", "model": "YOUR_CODEX_MODEL_ID", "version": "codex-cli 0.162.1" },
+    { "name": "claude", "model": "YOUR_CLAUDE_MODEL_ID", "auth": "browser", "version": "2.1.293 (Claude Code)" },
+    { "name": "grok", "model": "YOUR_GROK_MODEL_ID", "auth": "browser", "version": "grok 1.0.50 (c58f321264ba)" }
+  ],
+  "concurrency": 2,
+  "providerTimeoutSeconds": 600,
+  "timeoutSeconds": 1800,
+  "maxFiles": 50,
+  "maxFileBytes": 100000,
+  "maxContextBytes": 500000,
+  "contextFiles": []
+}

@@ -22,15 +22,22 @@ export function renderReport(report: Report): string {
     if (!s.exclusions.length) lines.push('None within the configured changed-file scope.');
   }
   lines.push('', '## Findings', '');
-  if (report.result) {
-    lines.push(escape(report.result.summary), '');
-    for (const f of report.result.findings) lines.push(
+  for (const p of report.providers) {
+    lines.push(`## Reviewer: ${escape(p.name)} · ${p.status}`, '',
+      `CLI: ${escape(p.version ?? 'unavailable')}`, `Requested model: ${escape(p.requestedModel ?? 'none')}`,
+      `Reported model: ${escape(p.model ?? 'not exposed by provider')}`, `Runtime: ${p.durationMs} ms`, '',
+      `Context hash: ${p.contextHash}`, `Prompt hash: ${p.promptHash}`, '');
+    if (p.errors.length) lines.push(...p.errors.map(e => `- ${escape(e)}`), '');
+    if (!p.result) { lines.push('No valid review result is available.', ''); continue; }
+    lines.push(escape(p.result.summary), '');
+    for (const f of p.result.findings) lines.push(
       `### ${escape(f.severity.toUpperCase())}: ${escape(f.title)}`, '',
       `${escape(f.path)}:${f.line} (${f.side})`, '', escape(f.description), '',
       `Trigger: ${escape(f.trigger)}`, '', `Impact: ${escape(f.impact)}`, '', `Evidence: ${escape(f.evidence)}`, '',
     );
-    lines.push('## Limitations', '', ...report.result.limitations.map(l => `- ${escape(l)}`));
-  } else lines.push('No valid review result is available.');
+    lines.push('### Limitations', '', ...p.result.limitations.map(l => `- ${escape(l)}`), '');
+  }
+  if (!report.providers.length) lines.push('No valid review result is available.');
   if (report.errors.length) lines.push('', '## Errors', '', ...report.errors.map(e => `- ${escape(e)}`));
   return lines.join('\n') + '\n';
 }

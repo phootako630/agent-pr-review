@@ -25,7 +25,7 @@ END_UNTRUSTED_REVIEW_PACKET`;
 export async function probeCodex(signal: AbortSignal): Promise<string> {
   const executable = await resolveCodex();
   const version = (await run(executable.command, [...executable.prefix, '--version'], { signal })).trim();
-  if (version !== 'codex-cli 0.162.1') throw new Error('M1 supports Codex CLI 0.162.1. Use npm exec --package=@openai/codex@0.162.1 -- node dist/cli.js <command> without changing your global installation.');
+  if (version !== 'codex-cli 0.162.1') throw new Error('Supported Codex CLI version is 0.162.1. Use npm exec --package=@openai/codex@0.162.1 -- node dist/cli.js <command> without changing your global installation.');
   const help = await run(executable.command, [...executable.prefix, 'exec', '--help'], { signal });
   for (const flag of ['--output-schema', '--output-last-message', '--sandbox', '--json', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--strict-config']) {
     if (!help.includes(flag)) throw new Error(`Installed Codex lacks ${flag}. Upgrade the CLI.`);
@@ -100,7 +100,7 @@ export async function codexReview(prompt: string, config: Config, directory: str
     let result;
     try { result = resultSchema.parse(JSON.parse(await readFile(outputPath, 'utf8'))); }
     catch { throw new Error('Codex final output is missing or does not match the review schema.'); }
-    return { result, usage, model: model ?? config.model ?? null };
+    return { result, usage, model };
   } finally {
     // The isolated home contains a temporary authentication copy and provider logs.
     await rm(sandbox, { recursive: true, force: true });

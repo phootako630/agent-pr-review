@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: M1 implemented on `feat/m1-local-review`; later milestones remain planned.
+Created: 2026-10-12. Status: M1 merged; M2 implemented on `feat/m2-independent-reviewers`; M3 onward remain planned.
 
 ## Outcome
 
@@ -49,6 +49,8 @@ Acceptance:
 - Automated fixtures prove diff locations and snapshot consistency. A real provider smoke run validates the actual CLI protocol.
 
 ### M2 — Three independent reviewers
+
+Implementation: native Claude Code and Grok adapters, bounded scheduler, per-provider deadlines, schema-v2 reports with candidate retention/provenance, explicit model/auth selection, and optional CLI version pins. Supported protocols are Codex 0.162.1, Claude Code 2.1.293, and Grok 1.0.50. All reviewers share one immutable bounded text packet and use separate empty working directories. Repository exploration remains deferred as established in M1.
 
 Add Claude Code and Grok adapters behind the same interface, provider capability checks, bounded concurrency, separate working directories, and independent first-round prompts. Record runtime and token/cost information when providers expose it.
 

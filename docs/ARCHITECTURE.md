@@ -16,6 +16,10 @@ The coordinator owns snapshots, run state, routing, deadlines, publication, and 
 
 Proposed adapter operations are `probe`, `review`, and `verify`, each with a deadline and cancellation signal. The coordinator validates all returned data. Prefer schema-constrained output where supported; fail explicitly rather than extracting arbitrary prose as trusted findings.
 
+M2 implements `probe` and `review` through a bounded worker scheduler. Capture happens once before fan-out; every reviewer receives the same serialized prompt, with identical context/prompt hashes. The scheduler owns per-provider deadlines and records failures independently. Completed results survive a peer failure or overall cancellation; queued reviewers cancelled before launch have no start timestamp. `verify` remains planned.
+
+Schema-v2 local reports retain a `providers` array with each provider's CLI version, requested/reported model, timing, status, whitelisted usage/cost estimate, schema-valid original candidates, filtered results, and controlled diagnostics. Aggregated findings are concatenated; semantic deduplication and GitHub publication belong to M3. Temporary credential homes and logs are removed on normal completion/cancellation.
+
 ## Snapshot and trust boundaries
 
 Record both PR base/head SHA and the merge base used for comparison. Review the head checkout against the captured comparison basis. Use a separate checkout or container per provider and never allow competing writes to a user's active worktree.
