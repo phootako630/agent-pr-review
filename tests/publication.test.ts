@@ -104,6 +104,9 @@ test('identical wording at different file anchors remains separate root-cause ca
   const report = reportFor([{ name: 'claude', findings: [defect, { ...defect, path: 'other.ts' }] }], snapshot);
   const plan = publicationPlan(parseReport(report), policy);
   assert.equal(plan.comments.length, 2); assert.notEqual(plan.comments[0]?.fingerprint, plan.comments[1]?.fingerprint);
+  const limited = publicationPlan(parseReport(report), { ...policy, maxComments: 1 });
+  assert.equal(limited.comments.length, 1); assert.equal(limited.normalized.candidates.filter(c => c.disposition === 'held').length, 1);
+  assert.match(limited.summary, /comment budget/i);
 });
 
 test('dry-run re-fetches source and prepares payload but performs no GitHub writes', async () => {
