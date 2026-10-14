@@ -105,6 +105,22 @@ test('unknown publication outcome preserves original report; retry/config change
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('recovery preview cannot clear unresolved publication or permit a changed-config model call', async () => {
+  const { root, engine, dependencies, reviewed } = await setup(); const original = dependencies.publish;
+  try {
+    dependencies.publish = async () => { throw new Error('Unknown publication outcome.'); };
+    await engine.tick([pr]); await engine.drain(); assert.equal([...engine.jobs.values()][0]!.status, 'blocked');
+    dependencies.publish = original;
+    const preview = new WorkerEngine(repository, 'main', config, root, dependencies, new AbortController().signal, true, () => {});
+    await preview.initialize({ retryFailed: true }); await preview.tick([pr]); await preview.drain();
+    assert.equal([...preview.jobs.values()][0]!.status, 'blocked');
+    const changed = { ...config, publication: { ...config.publication, maxComments: 9 } };
+    const changedEngine = new WorkerEngine(repository, 'main', changed, root, dependencies, new AbortController().signal, false, () => {});
+    await changedEngine.initialize(); await changedEngine.tick([pr]); await changedEngine.drain();
+    assert.equal(reviewed.length, 1); assert.ok(changedEngine.blockedPrs.has(pr.number));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('failed provider pauses across PR revisions; peers publish partial results and explicit resume clears pause', async () => {
   const multiple = browserWorkerConfig({ review: { reviewers: [{ name: 'codex', model: 'fixture', auth: 'browser' }, { name: 'claude', model: 'fixture', auth: 'browser' }] } });
   const { root, engine, dependencies, reviewed, published } = await setup(multiple);

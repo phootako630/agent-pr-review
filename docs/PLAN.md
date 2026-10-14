@@ -94,7 +94,7 @@ Optional hosted implementation (PR #5 merged): default-branch target/dispatch wo
 
 Live local pilot: disposable PR #6 was skipped while draft, then reviewed by all three browser-authenticated native CLIs after becoming ready. Its saved partial report published a summary, and repeat polling/restart made no new model call. A continuously running worker detected a follow-up push and published a second partial/inconclusive summary while preserving the first and unrelated bot discussion. Claude authentication expired on that second round; it was paused without API fallback while Codex/Grok results survived. All three initial candidates were held by the existing same-anchor conflict policy, so this pilot does not claim a new inline-comment validation or clean complete coverage. Earlier M3 inline publication remains separately validated.
 
-Local type-check/build, worker/authentication regression tests, and native protocol checks are recorded in the implementation PR. In particular, subprocess tests prove an inherited Codex API key is not used by browser mode, and red/green tests classify usage-limit and expired OAuth diagnostics without retaining raw private output.
+Local type-check/build and 67 tests pass, with final Linux/Windows status recorded in the implementation PR. Subprocess tests prove an inherited Codex API key is not used by browser mode; red/green tests classify usage-limit and expired OAuth diagnostics without retaining raw private output. An independent Codex review found that recovery previews could discard worker-level uncertainty and permit another model call after a config change. A regression reproduced it; durable publication-attempt state now survives previews until actual reconciliation.
 
 Acceptance:
 

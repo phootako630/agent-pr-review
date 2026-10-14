@@ -28,6 +28,7 @@ const prSchema = z.strictObject({ number: positive, url: z.string().url(), title
 const jobSchema = z.strictObject({ schemaVersion: z.literal(1), key: z.string().regex(/^[a-f0-9]{64}$/), repository: repositoryName, pr: prSchema,
   config: configSchema, policy: policySchema, toolVersion: z.string().max(100), runId: z.string().regex(/^[a-f0-9-]{1,50}$/),
   status: z.enum(['reviewing', 'reviewed', 'publishing', 'published', 'previewed', 'failed', 'blocked', 'cancelled', 'stale']),
+  publicationAttempted: z.boolean().default(false),
   updatedAt: z.iso.datetime(), detail: z.string().max(1000), reviewUrl: z.string().url().nullable() });
 export type WorkerJob = z.infer<typeof jobSchema>;
 const pauseSchema = z.partialRecord(z.enum(['codex', 'claude', 'grok']), z.strictObject({ since: z.iso.datetime(), reason: z.string().max(1000) }));
@@ -70,7 +71,11 @@ export class WorkerEngine {
     if (options.resumeProviders) { this.pauses = {}; await atomic(join(this.root, 'paused-providers.json'), this.pauses); this.log('PROVIDERS_RESUMED: browser login only; no API fallback.'); }
     for (const file of await readdir(join(this.root, 'jobs'))) {
       if (!/^[a-f0-9]{64}\.json$/.test(file)) continue;
-      const job = jobSchema.parse(await readJson(join(this.root, 'jobs', file), 128_000));
+      const input = await readJson(join(this.root, 'jobs', file), 128_000);
+      const job = jobSchema.parse(input);
+      if (!Object.hasOwn(input as object, 'publicationAttempted') && ['publishing', 'blocked'].includes(job.status)) {
+        job.publicationAttempted = true; await this.persist(job);
+      }
       if (job.repository !== this.repository || `${job.key}.json` !== file
         || job.key !== workerRevision(job.repository, job.pr, job.config, job.policy, job.toolVersion)) throw new Error('Worker job identity is inconsistent; inspect saved state.');
       browserWorkerConfig({ review: job.config, publication: job.policy });
@@ -112,7 +117,7 @@ export class WorkerEngine {
       if (job && (job.status === 'published' || (job.status === 'previewed' && this.preview) || (['failed', 'blocked', 'cancelled', 'stale'].includes(job.status) && !this.retry.has(key)))) continue;
       if (!job) {
         const prior = [...this.jobs.values()].find(saved => saved.pr.number === pr.number && saved.pr.headSha === pr.headSha && saved.pr.baseSha === pr.baseSha
-          && ['reviewed', 'publishing', 'blocked'].includes(saved.status));
+          && (['reviewed', 'publishing', 'blocked'].includes(saved.status) || (saved.publicationAttempted && saved.status !== 'published')));
         if (prior) {
           if (!this.blockedPrs.has(pr.number)) this.log(`BLOCKED_PRIOR: PR ${pr.number}; recover the original saved report/configuration before a new review.`);
           this.blockedPrs.add(pr.number); continue;
@@ -122,7 +127,7 @@ export class WorkerEngine {
           this.blockedPrs.add(pr.number); continue;
         }
         job = { schemaVersion: 1, key, repository: this.repository, pr, config: this.config.review, policy: this.config.publication, toolVersion: VERSION,
-          runId: `${key.slice(0, 8)}-${randomUUID().slice(0, 8)}`, status: 'reviewing', updatedAt: new Date().toISOString(), detail: '', reviewUrl: null };
+          runId: `${key.slice(0, 8)}-${randomUUID().slice(0, 8)}`, status: 'reviewing', publicationAttempted: false, updatedAt: new Date().toISOString(), detail: '', reviewUrl: null };
         this.jobs.set(key, job); await this.persist(job);
       }
       this.blockedPrs.delete(pr.number);
@@ -179,9 +184,12 @@ export class WorkerEngine {
       // Never cancel a publisher because of a new PR revision. Freshness is checked
       // by the existing publisher; SIGINT/deadline can still stop this process.
       active.phase = 'publish'; job.status = 'publishing'; await this.persist(job);
+      if (!this.preview) { job.publicationAttempted = true; await this.persist(job); }
       const result = await this.dependencies.publish(this.reportPath(job), job.policy, this.root,
         AbortSignal.any([this.signal, AbortSignal.timeout(180_000)]), this.preview);
-      job.status = this.preview ? 'previewed' : 'published'; job.detail = result.status; job.reviewUrl = result.url;
+      job.status = this.preview ? job.publicationAttempted ? 'blocked' : 'previewed' : 'published';
+      job.detail = this.preview && job.publicationAttempted ? 'Preview completed; the original publication still requires actual reconciliation without --preview.' : result.status;
+      job.reviewUrl = result.url;
       this.log(`${job.status.toUpperCase()}: PR ${job.pr.number}; ${report.status}/${report.outcome}${result.url ? `; ${result.url}` : ''}.`);
     } catch (error) {
       job.detail = controlled(error);
