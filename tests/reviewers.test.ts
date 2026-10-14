@@ -54,7 +54,7 @@ test('reviewer selection rejects missing models, duplicates, mixed simulation an
     { reviewers: [{ name: 'codex', model: 'test' }, { name: 'codex', model: 'test' }] },
     { reviewers: [{ name: 'fake' }, { name: 'grok', model: 'test' }] },
     { reviewers: [{ name: 'grok', model: 'test' }], model: 'test' },
-    { reviewer: 'codex', model: 'test', auth: 'browser' },
+    { reviewer: 'fake', auth: 'browser' },
   ]) assert.throws(() => selectedReviewers(configSchema.parse(input)));
   assert.deepEqual(selectedReviewers(configSchema.parse({ reviewer: 'grok', model: 'test', auth: 'browser' })), [{ name: 'grok', model: 'test', auth: 'browser' }]);
 });

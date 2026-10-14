@@ -101,6 +101,8 @@ Keep findings that cannot be anchored in a summary. GitHub line comments require
 
 ## Deployment progression
 
+The owner chose local worker + official CLI on 2026-10-13 to use existing subscription logins. The worker polls paginated PR metadata, skips drafts/forks/alternate bases, and coordinates immutable browser-authenticated review sessions. Revision records survive restarts; saved reports are reused for publication recovery. Provider failures are paused until explicit resume, with partial peers retained. Browser mode rejects API-key fallback. The optional hosted/API deployment below remains disabled unless independently configured. See `WORKER.md`.
+
 M4 separates trusted default-branch gate, reviewer, and publisher jobs. Review cancellation and publication serialization use distinct PR-specific concurrency groups. Before a new review POST, a durable pending commit status references the report artifact and publication/delivery identity; recovery on a fresh runner reuses the original report and refuses another create. Artifacts expire after 30 days, but uncertainty remains visible on GitHub and blocks automatic retry. Hosted execution uses API-key secrets supplied only to the review step. See `ACTIONS.md` for source-origin verification, dispatch fallback, retention, and live acceptance status.
 
 1. Build and test the CLI engine locally, with file artifacts and explicit publication.

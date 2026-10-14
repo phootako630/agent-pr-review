@@ -10,13 +10,14 @@ export type Adapter = {
 };
 export function adapterFor(name: Reviewer['name'], config: Config): Adapter {
   if (name === 'fake') return { probe: async () => VERSION, review: async () => ({ result: fakeReview(), model: null, usage: null }) };
-  if (name === 'codex') return { probe: probeCodex, review: (prompt, reviewer, directory, signal) => codexReview(prompt, { ...config, model: reviewer.model }, directory, signal) };
+  if (name === 'codex') return { probe: probeCodex, review: (prompt, reviewer, directory, signal) => codexReview(prompt, { ...config, model: reviewer.model, auth: reviewer.auth }, directory, signal) };
   return { probe: signal => probeNative(name, signal), review: (prompt, reviewer, directory, signal) => nativeReview(name, prompt, reviewer.model!, directory, signal, reviewer.auth) };
 }
 
 export async function runReviewers(options: {
   reviewers: Reviewer[]; config: Config; snapshot: Snapshot; prompt: string; directory: string;
   signal: AbortSignal; adapter?: (name: Reviewer['name']) => Adapter; progress?: (message: string) => void;
+  pausedProviders?: Partial<Record<Reviewer['name'], string>>;
 }): Promise<ProviderReport[]> {
   const { snapshot, prompt, config, signal } = options;
   const contextHash = hash(snapshot), promptHash = hash(prompt);
@@ -30,6 +31,9 @@ export async function runReviewers(options: {
     while (cursor < options.reviewers.length) {
       const index = cursor++, reviewer = options.reviewers[index]!, report = reports[index]!;
       if (signal.aborted) { report.errors.push('Cancelled before this provider started.'); continue; }
+      if (options.pausedProviders?.[reviewer.name]) {
+        report.status = 'failed'; report.errors.push('Provider paused by the local worker. Resume it explicitly after checking login and usage.'); continue;
+      }
       const started = Date.now();
       report.startedAt = new Date(started).toISOString();
       const deadline = AbortSignal.timeout(config.providerTimeoutSeconds * 1000);

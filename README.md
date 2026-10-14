@@ -2,7 +2,26 @@
 
 Automatic PR reviews from Codex, Claude Code, and Grok, followed by author assessment and a human decision before rework.
 
-**Status: M3 implementation.** The CLI runs independent Codex, Claude Code, and Grok reviews, retains evidence/provenance, and explicitly publishes comment-only GitHub reviews with duplicate protection. Automatic triggers, author assessment, and human decisions remain planned.
+**Status: M4 local worker.** Independent Codex, Claude Code, and Grok reviews run through browser-authenticated official CLIs. A local worker detects ready PRs and new revisions and publishes comment-only GitHub reviews with duplicate protection. API-key hosted execution is optional. Author assessment and human decisions remain M5.
+
+## Recommended: local worker + CLI
+
+Use existing subscription logins on your computer. No provider API keys are required; worker configuration rejects API auth and automatic fallback.
+
+```sh
+npm ci --ignore-scripts
+npm run build
+npm ci --ignore-scripts --prefix tools/agents
+node tools/agents/bootstrap.mjs
+
+# Check model IDs in examples/worker.browser.json, then start:
+npm run worker -- OWNER/REPO
+
+# One PR, review/preview only:
+npm run worker -- OWNER/REPO --pr 123 --once --preview
+```
+
+The computer must be online; provider failures pause that reviewer until explicit resume. Subscription allowance and any account-level paid-overage settings still apply. See [worker setup and recovery](docs/WORKER.md).
 
 ## Run locally
 
@@ -30,7 +49,7 @@ node dist/cli.js review --reviewer fake --fixture tests/fixtures/pr.json
 
 If Codex 0.162.1 is already on PATH, run `node dist/cli.js review ...` directly. Supply a model available to your account; the tool does not choose or substitute one. `doctor` checks installation and credential presence, not model entitlement.
 
-Authentication: Codex uses `OPENAI_API_KEY` or file-backed `codex login` credentials. Claude uses `ANTHROPIC_API_KEY` in bare mode, or file-backed `claude auth login` credentials with `--auth browser`. Grok uses `XAI_API_KEY` or `grok login` browser credentials. Without an explicit auth setting, a present provider API key takes precedence over browser credentials. Authentication errors do not trigger an automatic switch or retry. Keychain-only credentials are not yet supported. CLI paths are resolved from PATH; no global install is changed by this tool.
+Authentication: all three providers support explicit `--auth browser` using their official file-backed login. This route ignores inherited API keys and refuses missing/unsupported browser credentials. Explicit `--auth api-key` requires the corresponding provider key. The general single-run CLI retains automatic auth selection when `auth` is omitted; the local worker refuses that mode. Authentication errors never trigger an automatic switch or retry. Keychain-only credentials are not supported. CLI paths are resolved from PATH; no global install is changed by this tool.
 
 Reports are saved under `.pr-review/runs/<run-id>/report.json`, `report.md`, and `normalized-findings.json`. Schema version 2 has a `providers` array with individual status, requested/reported model, CLI version, timings, usage, errors, original candidates (`rawResult`), and evidence-filtered findings (`result`). The top-level result retains the M2 concatenated format; the separate normalized artifact contains conservative groups, provenance, and held candidates. Cost values are CLI estimates. A provider may report a different canonical model ID from the requested alias; both are recorded. No actual model identifier is invented when the CLI omits it.
 
@@ -65,11 +84,11 @@ node dist/cli.js publish .pr-review/runs/RUN_ID/report.json --allow-partial
 
 Local publication requires a GitHub user token with PR read/write permissions, supplied by `gh auth login`, `GH_TOKEN`, or `GITHUB_TOKEN`. The hosted `actions publish` command supports the standard Actions bot token separately. General third-party App publisher identities remain deferred. No model credentials are needed by either publisher.
 
-## Automatic GitHub Actions reviews (M4)
+## Optional hosted API-key execution
 
 The [hosted workflow](.github/workflows/agent-review.yml) reviews ready same-repository PRs when opened, reopened, marked ready, or updated. Review jobs use the trusted default-branch coordinator and can be cancelled by newer revisions; separate serialized publisher jobs post COMMENT reviews with durable retry protection. Drafts and forks are skipped. Source/report artifacts are retained for 30 days.
 
-Setup: merge the workflow onto the default branch, configure accessible API model IDs in [.github/agent-review.json](.github/agent-review.json), add `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `XAI_API_KEY` Actions secrets for selected providers, then set repository variable `AGENT_REVIEW_ENABLED=true`. Initial model placeholders and the disabled-by-default gate prevent accidental model calls. Browser credentials are not copied to hosted runners.
+This is an opt-in deployment with separate provider API billing. For the recommended subscription-login path, use the local worker above. Hosted setup requires accessible API model IDs in [.github/agent-review.json](.github/agent-review.json), provider Actions secrets, and repository variable `AGENT_REVIEW_ENABLED=true`. Initial model placeholders and the disabled-by-default gate prevent accidental model calls. Browser credentials are not copied to hosted runners.
 
 Manual retry and coding-bot event fallback:
 

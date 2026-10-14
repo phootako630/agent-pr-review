@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { outputJsonSchema, resultSchema, type ReviewResult } from './contracts.js';
 import { baseEnvironment, failureHint, resolveNative, run } from './process.js';
+import { readBrowserCredentials } from './browser-auth.js';
 
 export type ProviderResponse = { result: ReviewResult; model: string | null; usage: unknown };
 // Complete built-in catalog observed in the pinned Grok 1.0.50 session protocol.
@@ -118,11 +119,14 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
       const apiKey = auth !== 'browser' && !!process.env.ANTHROPIC_API_KEY;
       if (auth === 'api-key' && !apiKey) throw new Error('Set ANTHROPIC_API_KEY for Claude API-key mode.');
       if (!apiKey) {
-        try {
-          const credentials = JSON.parse(await readFile(join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), '.credentials.json'), 'utf8'));
-          if (!credentials.claudeAiOauth) throw new Error();
-          await writeFile(join(home, '.credentials.json'), JSON.stringify({ claudeAiOauth: credentials.claudeAiOauth }), { mode: 0o600 });
-        } catch { throw new Error('Claude browser credentials unavailable. Run claude auth login or choose api-key auth.'); }
+        if (auth === 'browser') await writeFile(join(home, '.credentials.json'), JSON.stringify(await readBrowserCredentials('claude')), { mode: 0o600 });
+        else {
+          try {
+            const credentials = JSON.parse(await readFile(join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), '.credentials.json'), 'utf8'));
+            if (!credentials.claudeAiOauth) throw new Error();
+            await writeFile(join(home, '.credentials.json'), JSON.stringify({ claudeAiOauth: credentials.claudeAiOauth }), { mode: 0o600 });
+          } catch { throw new Error('Claude browser credentials unavailable. Run claude auth login or choose api-key auth.'); }
+        }
       }
       const output = await run(exe.command, [...exe.prefix, '-p', ...(apiKey ? ['--bare'] : ['--safe-mode', '--restricted', '--setting-sources', '', '--settings', '{"disableAllHooks":true}']), '--model', model,
         '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
@@ -134,10 +138,13 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
     const apiKey = auth !== 'browser' && !!process.env.XAI_API_KEY;
     if (auth === 'api-key' && !apiKey) throw new Error('Set XAI_API_KEY for Grok API-key mode.');
     if (!apiKey) {
-      try {
-        await copyFile(join(process.env.GROK_HOME ?? join(homedir(), '.grok'), 'auth.json'), join(home, 'auth.json'));
-        await chmod(join(home, 'auth.json'), 0o600);
-      } catch { throw new Error('Grok authentication unavailable. Run grok login or set XAI_API_KEY.'); }
+      if (auth === 'browser') await writeFile(join(home, 'auth.json'), JSON.stringify(await readBrowserCredentials('grok')), { mode: 0o600 });
+      else {
+        try {
+          await copyFile(join(process.env.GROK_HOME ?? join(homedir(), '.grok'), 'auth.json'), join(home, 'auth.json'));
+          await chmod(join(home, 'auth.json'), 0o600);
+        } catch { throw new Error('Grok authentication unavailable. Run grok login or set XAI_API_KEY.'); }
+      }
     }
     const config = '[cli]\nauto_update = false\n[session]\nload_envrc = false\n[permission]\nrules = [{ action = "deny", tool = "any" }]\n[compat.cursor]\nskills = false\nrules = false\nagents = false\nmcps = false\nhooks = false\n[compat.claude]\nskills = false\nrules = false\nagents = false\nmcps = false\nhooks = false\n';
     await writeFile(join(home, 'config.toml'), config, { mode: 0o600 });

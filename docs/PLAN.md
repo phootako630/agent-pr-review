@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Status: M1–M3 merged; M4 implementation in progress on `feat/m4-actions-reviews`, hosted live acceptance pending merge/setup; M5 onward remain planned.
+Created: 2026-10-12. Updated: 2026-10-13. Status: M1–M3 and optional hosted M4 merged; local browser worker implemented on `feat/m4-local-worker` following the owner's cost preference; M5 onward remain planned.
 
 ## Outcome
 
@@ -16,7 +16,7 @@ The user confirmed mixed local/cloud authors, automatic reviews, and an explicit
 - Begin with independent reviewer sessions. When the author provider is known, default to the other two providers; never count the original author session as an independent reviewer. Reviewer-to-reviewer cross-validation is optional and bounded to one pass.
 - Treat evidence as the publication criterion. Model agreement is supporting information, not proof.
 - Review is read-only by default. Test execution is a separate opt-in sandbox capability.
-- Local commands default to reports; configured CI publishes reviews automatically. Use up to 10 published findings and a 10-minute review deadline. Author assessment and human waiting are separate stages, not part of that timeout. Tune provisional limits against measured runs.
+- Single-run local reviews default to reports. The recommended continuous worker uses official browser-authenticated CLIs and publishes COMMENT reviews automatically. Provider API-key cloud execution is optional and remains disabled. This supersedes the earlier hosted/API default after the owner clarified subscription usage on 2026-10-13. Use up to 10 published findings and a 10-minute review deadline. Author assessment and human waiting are separate stages.
 - Support partial reports when a provider fails. A failed or incomplete review must never appear as a clean review.
 - Store local artifacts for CLI runs and retained CI artifacts for hosted runs. GitHub comments and a versioned decision summary expose the shared history; no dedicated database is required initially.
 - Support the original author through a portable assessment packet first. Automatic local session resumption and cloud-bot messaging require provider-specific integration and are not promised in version 0.1.
@@ -86,21 +86,23 @@ Acceptance:
 - A changed PR can be reviewed again without automatically deleting historical discussion or resolving threads solely because a finding was not rediscovered.
 - Concurrent publishers are serialized per PR in CI; local publication uses a lock and remote reconciliation. Cross-machine races are documented until distributed locking exists.
 
-### M4 — Automatic GitHub Actions reviews
+### M4 — Automatic reviews with local worker + CLI
 
-Implementation: default-branch `pull_request_target`/manual-dispatch workflow, immutable gate packet, cancelling reviewer jobs, separately serialized publishers, API-key secret isolation, pinned native installations, 30-day data-only artifacts, and durable commit-status publication intent. Repeated delivery uses snapshot/config/prompt/policy/tool/coordinator identity; pending intent forces original-report reconciliation even on a fresh runner. The user chose GitHub-hosted runners with provider API-key secrets. Model IDs and credential availability require operator setup; placeholders deliberately refuse execution. See `docs/ACTIONS.md`.
+Preferred implementation: a local GitHub REST poller with explicit browser auth for every reviewer, fixed source snapshots, bounded concurrency, new-revision cancellation, persistent revision/report state, provider pauses, and separate existing publisher journals/locks. Failed/expired/limited providers do not switch to API auth. Partial peers remain usable. The native CLIs retain their actual account entitlements and billing policies; the coordinator cannot enforce account-level paid-overage settings. See `docs/WORKER.md`.
 
-Validation: local type-check/build and 51 tests pass, including transport-level durable-intent/recovery/rate-limit tests. Linux/Windows CI and native protocol probes passed the initial implementation. An independent Codex packet review identified snapshot property reordering at the gate boundary; a failing regression test reproduced the hash mismatch, and schema validation now preserves the original serialized packet. Check the PR for final-revision CI. Live default-branch ready/update/draft/cancellation and actual author-bot credential tests remain pending. Do not mark M4 complete until this live pilot is recorded.
+Optional hosted implementation (PR #5 merged): default-branch target/dispatch workflow, isolated API-key reviews, serialized publishers, 30-day data-only artifacts, and durable commit-status intent. This path is not enabled and is not required for the local worker. Its hosted credential/event pilot remains pending separate setup. See `docs/ACTIONS.md`.
 
-Package the same CLI for automatic ready/updated PR reviews on trusted repository branches, plus manual retry. Use `opened`, `reopened`, `ready_for_review`, and `synchronize` events with a draft guard. Separate review execution from the step that has permission to publish. This is core MVP behavior, not an optional later deployment.
+Live local pilot: disposable PR #6 was skipped while draft, then reviewed by all three browser-authenticated native CLIs after becoming ready. Its saved partial report published a summary, and repeat polling/restart made no new model call. A continuously running worker detected a follow-up push and published a second partial/inconclusive summary while preserving the first and unrelated bot discussion. Claude authentication expired on that second round; it was paused without API fallback while Codex/Grok results survived. All three initial candidates were held by the existing same-anchor conflict policy, so this pilot does not claim a new inline-comment validation or clean complete coverage. Earlier M3 inline publication remains separately validated.
+
+Local type-check/build and 67 tests pass, with final Linux/Windows status recorded in the implementation PR. Subprocess tests prove an inherited Codex API key is not used by browser mode; red/green tests classify usage-limit and expired OAuth diagnostics without retaining raw private output. An independent Codex review found that recovery previews could discard worker-level uncertainty and permit another model call after a config change. A regression reproduced it; durable publication-attempt state now survives previews until actual reconciliation.
 
 Acceptance:
 
-- A test PR update triggers a run; a newer revision cancels superseded work through a PR-specific concurrency group.
+- A test PR update is detected automatically; a newer revision cancels an active review on the next successful poll. Publication is never cancelled by that poll.
 - A draft PR is skipped; marking it ready triggers review. A PR opened ready also triggers review. Bot comments do not recursively trigger review.
 - Review runs use an explicitly captured PR head, not an assumed event merge commit. Deduplicate repeated deliveries for the same snapshot and policy.
-- Test PR creation/push using each actual coding-bot credential path: events generated with a workflow's default token may not trigger another workflow. Use a supported authenticated dispatch or App-based path where necessary, and expose an explicit skipped/failed status when unavailable.
-- Review artifacts are retained with an explicit retention period; logs distinguish clean, partial, failed, stale, and published outcomes.
+- Local detection reads PR metadata directly and does not depend on Actions events from the author credential. Actual individual cloud-bot credential paths remain un-inventoried; no direct author-session integration is claimed. Optional hosted execution supports explicit dispatch where events do not deliver.
+- Local artifacts/journals persist without automatic deletion, with documented manual cleanup after recovery. Optional hosted artifacts retain 30 days. Logs distinguish partial, failed, stale, paused, previewed, and published outcomes.
 - Fork PRs do not automatically receive secrets or execute in a privileged publishing job. The initial policy skips them with a clear status; isolated fork support is later work.
 - Provider timeout, missing credentials, and GitHub rate limits have tested behavior.
 - Workflow dependencies are pinned and the publisher uses minimum repository permissions.
