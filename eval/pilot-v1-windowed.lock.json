@@ -1,0 +1,327 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "pilot-v1-windowed",
+  "description": "10 pinned public ReviewBench tasks (diff + 20-line neighborhoods) + 10 original coordinator fixtures; 12 dev, 8 reserved test; no few-shots. Not an official ReviewBench score.",
+  "cases": [
+    {
+      "id": "public-01",
+      "split": "dev",
+      "group": "public-01",
+      "language": "TypeScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/bitmovin/bitmovin-player-ui/pull/848",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-01.json",
+      "snapshotHash": "fa55748218b94f5fa3a5eb04e6a49862b0eb9cd6468411a6c703a830cf358350",
+      "labels": "labels/public-01.json",
+      "labelsHash": "395b2b59ffe36080f469af17b9e9be75c4876ea9dd089ca69a80df03b049fb71"
+    },
+    {
+      "id": "public-02",
+      "split": "dev",
+      "group": "public-02",
+      "language": "TypeScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/capawesome-team/cli/pull/127",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-02.json",
+      "snapshotHash": "f8ebfa833836a695a70038aaa82b9433cb99350d1d9721ac4ddf10e8a083567f",
+      "labels": "labels/public-02.json",
+      "labelsHash": "2df51e89a6d37cddb1d2a864a8e63fe4f9d4d784eb9e3889c3642dd0afdd13c1"
+    },
+    {
+      "id": "public-03",
+      "split": "dev",
+      "group": "public-03",
+      "language": "TypeScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/playcanvas/editor/pull/1955",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-03.json",
+      "snapshotHash": "5c696426648d7dc29899da2f5eb485c21d06a12e12b27c245310d9415bdd72ab",
+      "labels": "labels/public-03.json",
+      "labelsHash": "91c547056f9c9772b7a91f6bda36134668aa12bd31bde68c09955ad1c2cb6a87"
+    },
+    {
+      "id": "public-04",
+      "split": "dev",
+      "group": "public-04",
+      "language": "TypeScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/pnp/cli-microsoft365/pull/7191",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-04.json",
+      "snapshotHash": "a189aae5d819bd2d5654eaee3356ededcc02a755a665056bc4a08db2b102052a",
+      "labels": "labels/public-04.json",
+      "labelsHash": "364db8fcf98d52a1bb1a84cd01da21893fe45ee22d86adf84bfcbc78ea4250d3"
+    },
+    {
+      "id": "public-05",
+      "split": "dev",
+      "group": "public-05",
+      "language": "TypeScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/namehash/ensnode/pull/1938",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-05.json",
+      "snapshotHash": "82ad59e633a16c690d5ff59148598d0a4a354e0ce87ab2aafdaa499f285d01d8",
+      "labels": "labels/public-05.json",
+      "labelsHash": "42d9b12d6fcf408a6ab6b5531ca93a9e04dc3c410f558de45d2f6339596689c4"
+    },
+    {
+      "id": "public-06",
+      "split": "dev",
+      "group": "public-06",
+      "language": "JavaScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/axios/axios/pull/10836",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-06.json",
+      "snapshotHash": "14f2fba3924ce65ba910ae6970b243d67d923dd760925e1177ad7d945101e214",
+      "labels": "labels/public-06.json",
+      "labelsHash": "cebf4fefa7b21da6079768d8c5ec5f82c7b16fdde1eb069514f0febdec33dd67"
+    },
+    {
+      "id": "public-07",
+      "split": "test",
+      "group": "public-07",
+      "language": "JavaScript",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/alexbol99/flatten-js/pull/244",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-07.json",
+      "snapshotHash": "881e292d4bcd286dca858858fdc3aa207edc1269591db724113dd4ba386f1b49",
+      "labels": "labels/public-07.json",
+      "labelsHash": "082455084bc19df9df8baeade2941820f241ffab1e290b7dfd2940c34b18179f"
+    },
+    {
+      "id": "public-08",
+      "split": "test",
+      "group": "public-08",
+      "language": "Python",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/nipoppy/nipoppy/pull/964",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-08.json",
+      "snapshotHash": "8472272bcdc1c8ebf4b3ed0c23a893e261ecaf8a26da6a489fb5c0b800d831da",
+      "labels": "labels/public-08.json",
+      "labelsHash": "140e8e4860799925c3134723f34c72a3025d93e6985dfac8630a9c076931edfa"
+    },
+    {
+      "id": "public-09",
+      "split": "test",
+      "group": "public-09",
+      "language": "Python",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/YasserShkeir/django-smart-ratelimit/pull/25",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-09.json",
+      "snapshotHash": "2a14643f62d9fdfa0faabbd1645aa85281392e27e2074958b95d60511673ba87",
+      "labels": "labels/public-09.json",
+      "labelsHash": "bfa769df75d618b744118234708e7783f9ec3c485cd05e13835b3f4d7a668a78"
+    },
+    {
+      "id": "public-10",
+      "split": "test",
+      "group": "public-10",
+      "language": "Python",
+      "source": {
+        "kind": "public",
+        "url": "https://github.com/torchfont/torchfont/pull/133",
+        "revision": "5bba258937cc7d43577ce9a81a389a6550a20fa9",
+        "license": "ReviewBench MIT; source repository licenses retained in local notices"
+      },
+      "snapshot": "inputs/public-10.json",
+      "snapshotHash": "a3621607c1ab89a2502f0d267e3f552be381c5b69114263f0fb5b584f7b54fb7",
+      "labels": "labels/public-10.json",
+      "labelsHash": "9a989379b3dd95fc99443e94180d7cf6ce07fb6104d860a00962ef8d2e9667c3"
+    },
+    {
+      "id": "local-01",
+      "split": "dev",
+      "group": "pagination",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "0493cced6ac35d1d2086b0cea96505f6f8a6377d6a2f8675a96fff9e6956a20a",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-01.json",
+      "snapshotHash": "971c94cb507491e48a3fe30629fd3aa2e3024f2d1e1f61b8b1659034f302736b",
+      "labels": "labels/local-01.json",
+      "labelsHash": "837bd4e697ad533dfaa0140116e768a3ef7c7d4b0e46b826c2b9543b7fba6a6a"
+    },
+    {
+      "id": "local-02",
+      "split": "dev",
+      "group": "publication-recovery",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "a0f97af182cae58ad11fda85caac1aca0f26de39284842e74e065377e5444ace",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-02.json",
+      "snapshotHash": "2f254006e400f22642ce4fc617fae8dea2a7c655512ec539b338ba1a33e7db70",
+      "labels": "labels/local-02.json",
+      "labelsHash": "73d1c4c14ddb4dfc15ef1d8be49156e914691f425824cde8aa62ab12f61ef18d"
+    },
+    {
+      "id": "local-03",
+      "split": "dev",
+      "group": "browser-auth",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "a65111ae206be396a825236634bf03f83221faadb4b46b15df33fd92ad0a997b",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-03.json",
+      "snapshotHash": "c71ae576c549d31224cb3825cad07e6d0558ccdf4645352ca58cfd90af09250f",
+      "labels": "labels/local-03.json",
+      "labelsHash": "90d925054eba94f960f4d8121bc46b0f4da9808cb836006b99a4e040884d7109"
+    },
+    {
+      "id": "local-04",
+      "split": "dev",
+      "group": "cancellation",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "713c78103e07a70fcd500626d859a1f95672b21a7402f5767c71d315a4bf536e",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-04.json",
+      "snapshotHash": "84091db1dbf9a97746e1ef6d21d505ac1313ad119b8fd7ca37ff13120816cc26",
+      "labels": "labels/local-04.json",
+      "labelsHash": "275f869a8aefa199ad9051f4ad218c8276333ef2c5cd7735d60f2e13d443c359"
+    },
+    {
+      "id": "local-05",
+      "split": "dev",
+      "group": "eligibility",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "e45b9c4f5f9ad30c42466f49fb4f1e242b330ac1275c59f7eb00bc496c24ac41",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-05.json",
+      "snapshotHash": "c343e256a2cc9e8eea2c1e57d384028bf5c13534b8a03c1b06832b8ceaee68d3",
+      "labels": "labels/local-05.json",
+      "labelsHash": "26bb587cc6097bfe486706cc67d894d26016bb348e51a9d70c1eef0943e31a9f"
+    },
+    {
+      "id": "local-06",
+      "split": "dev",
+      "group": "revision-identity",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "2b7a1611b81704721b2f21f938e95af0dbb03c0f6b32675bdd54f863251efdfd",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-06.json",
+      "snapshotHash": "07e4b08fb7910924759b4af48a47a7a0626585cbf2b09d74158784aebf7c0683",
+      "labels": "labels/local-06.json",
+      "labelsHash": "30e544e1f8b54276b1fb6a1427dfda29cfcb15fa6348351d00b95beb18245306"
+    },
+    {
+      "id": "local-07",
+      "split": "test",
+      "group": "provider-pause",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "26c19a5224068460b605560e1db6e09cc4ce3873328d4f5e136e315300f8167e",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-07.json",
+      "snapshotHash": "453183f8967ef908653863e449d8d0f6e727a92feceb3ba6b47b835af0963d17",
+      "labels": "labels/local-07.json",
+      "labelsHash": "72a11d09c2e40bbad7e819b8c506bee081767044709a653986df4ad145aa4b72"
+    },
+    {
+      "id": "local-08",
+      "split": "test",
+      "group": "evidence-anchor",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "5e3fb755f5d3d58bd59c0ec6bd15634a32a978b14584333c473583e4d327f1a2",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-08.json",
+      "snapshotHash": "f3f9cfb5be9efe122c1fc483cc6ff341549aeff504c30319c6690d3567bd7900",
+      "labels": "labels/local-08.json",
+      "labelsHash": "e4e3924f475e6fa1c49738fb5f2cf938868fa5b1aa72c46b1d1b148c0aec7182"
+    },
+    {
+      "id": "local-09",
+      "split": "test",
+      "group": "metadata-injection",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "c3984708594074e2118189ab385311f8805cc89ed4295466423622f6af218c05",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-09.json",
+      "snapshotHash": "d2709d2d75f95f841b069b0f66457190d6afbb5c8fbcdfd0a42745ab8e7dad85",
+      "labels": "labels/local-09.json",
+      "labelsHash": "1e6a27f479037a76d8511654ce762b049bc2fdf166438231f2bb6af1917664f6"
+    },
+    {
+      "id": "local-10",
+      "split": "test",
+      "group": "exit-cleanup",
+      "language": "JavaScript",
+      "source": {
+        "kind": "synthetic",
+        "url": "https://github.com/phootako630/agent-pr-review",
+        "revision": "d80df0b0729a633becffecac28e5887ab220a1776ec88160789e34c20ae9a9f8",
+        "license": "Project-authored evaluation fixture"
+      },
+      "snapshot": "inputs/local-10.json",
+      "snapshotHash": "b1a71ddf1672182d0e4354f165b3f876ccae870dd7aafb95a455dff54d53025a",
+      "labels": "labels/local-10.json",
+      "labelsHash": "b8f8974932e702e7333370a9dff3847401461dc67fa49d078970df605371ee87"
+    }
+  ]
+}
