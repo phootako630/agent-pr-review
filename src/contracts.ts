@@ -36,7 +36,7 @@ export type Config = z.infer<typeof configSchema>;
 export function selectedReviewers(config: Config): Reviewer[] {
   if (config.reviewers && (config.model || config.auth || config.reviewer !== 'codex')) throw new Error('Use reviewers or reviewer/model/auth, not both configuration styles.');
   const reviewers = config.reviewers ?? [{ name: config.reviewer, model: config.model, auth: config.auth }];
-  if (reviewers.some(r => r.auth && (r.name === 'codex' || r.name === 'fake'))) throw new Error('Explicit auth selection is supported for Claude and Grok. Codex uses its own login or OPENAI_API_KEY.');
+  if (reviewers.some(r => r.auth && r.name === 'fake')) throw new Error('The fake reviewer has no authentication mode.');
   if (new Set(reviewers.map(r => r.name)).size !== reviewers.length) throw new Error('Each provider may appear only once.');
   if (reviewers.some(r => r.name === 'fake') && reviewers.length > 1) throw new Error('The fake reviewer cannot be mixed with live reviewers.');
   if (reviewers.some(r => r.name !== 'fake' && !r.model)) throw new Error('Set an explicit accessible model for every live reviewer.');

@@ -9,10 +9,11 @@ export class ProcessError extends Error {
 }
 
 export function failureHint(diagnostic: string): string {
+  if (/quota|usage.limit|weekly.limit|usage.cap|credits.exhausted|insufficient.credits|hit.{0,30}(your |the )?limit|out.of.extra.usage/i.test(diagnostic)) return 'Provider usage allowance exhausted. Wait for reset or inspect account usage; this run does not switch authentication.';
   if (/Filename too long|\$GIT_DIR.*too big/i.test(diagnostic)) return 'Temporary Git path exceeds the supported path length. Use a shorter output or publication state directory.';
   if (/git.bash|CLAUDE_CODE_GIT_BASH_PATH/i.test(diagnostic)) return 'Claude Code requires Git Bash on Windows. Set CLAUDE_CODE_GIT_BASH_PATH to its bash.exe.';
   if (/model.{0,150}(not supported|not found|does not exist)/i.test(diagnostic)) return 'The model is unavailable for this account. Choose an accessible --model and check your Codex CLI version.';
-  if (/401|unauthorized|authentication|login required|Invalid API key/i.test(diagnostic)) return 'Authentication failed. Check the failing tool’s login or API key and configured auth mode.';
+  if (/401|unauthorized|authentication|login required|Invalid API key|re-authenticat|(?:oauth|token).{0,100}(expired|refresh.{0,50}failed)|expired.{0,30}token/i.test(diagnostic)) return 'Authentication failed. Check the failing tool’s login or API key and configured auth mode.';
   if (/429|rate.limit/i.test(diagnostic)) return 'Provider rate limit reached. Retry later or reduce review frequency.';
   if (/schema|invalid configuration|unrecognized configuration/i.test(diagnostic)) return 'Provider configuration or output schema was rejected. Check CLI compatibility.';
   return 'Check installation, authentication, model access, and connectivity.';

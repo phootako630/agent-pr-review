@@ -1,0 +1,15 @@
+{
+  "review": {
+    "reviewers": [
+      { "name": "codex", "model": "gpt-6.1-sol", "auth": "browser", "version": "codex-cli 0.162.1" },
+      { "name": "claude", "model": "claude-sonnet-5-5", "auth": "browser", "version": "2.1.293 (Claude Code)" },
+      { "name": "grok", "model": "grok-4.7", "auth": "browser", "version": "grok 1.0.50 (c58f321264ba)" }
+    ],
+    "concurrency": 2,
+    "providerTimeoutSeconds": 300,
+    "timeoutSeconds": 600
+  },
+  "publication": { "allowPartial": true, "maxComments": 10 },
+  "pollSeconds": 30,
+  "maxActivePrs": 1
+}

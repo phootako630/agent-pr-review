@@ -78,6 +78,16 @@ test('subprocess cancellation and output caps terminate execution', async () => 
   await assert.rejects(run('pr-review-nonexistent-executable', []), /Unable to start/);
 });
 
+test('a subscription-limit diagnostic on stdout is classified without saving private output', async () => {
+  await assert.rejects(run(process.execPath, ['-e', `console.log(JSON.stringify({is_error:true,result:"You've hit your limit. private-secret-fixture"}));process.exit(1)`]),
+    error => error instanceof Error && /usage allowance exhausted/.test(error.message) && !error.message.includes('private-secret-fixture'));
+});
+
+test('expired OAuth refresh diagnostics are classified as authentication failure', async () => {
+  await assert.rejects(run(process.execPath, ['-e', `console.log(JSON.stringify({is_error:true,result:"OAuth token refresh failed: token has expired. private-secret-fixture"}));process.exit(1)`]),
+    error => error instanceof Error && /Authentication failed/.test(error.message) && !error.message.includes('private-secret-fixture'));
+});
+
 test('offline fake run saves reports and never claims a clean live review', async () => {
   const output = await mkdtemp(join(tmpdir(), 'pr-review-test-'));
   try {

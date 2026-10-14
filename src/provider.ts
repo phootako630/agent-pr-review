@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { outputJsonSchema, resultSchema, type Config, type ReviewResult, type Snapshot } from './contracts.js';
 import { baseEnvironment, failureHint, resolveCodex, run } from './process.js';
+import { readBrowserCredentials } from './browser-auth.js';
 
 export function reviewPrompt(snapshot: Snapshot): string {
   return `You are an independent code reviewer. This is a bounded, tool-free review.
@@ -72,8 +73,10 @@ export async function codexReview(prompt: string, config: Config, directory: str
   const env: NodeJS.ProcessEnv = { ...baseEnvironment(), CODEX_HOME: home };
   const originalHome = process.env.CODEX_HOME ?? join(homedir(), '.codex');
   try {
-    if (process.env.OPENAI_API_KEY) env.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (config.auth === 'browser') await writeFile(join(home, 'auth.json'), JSON.stringify(await readBrowserCredentials('codex')), { mode: 0o600 });
+    else if (process.env.OPENAI_API_KEY) env.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     else {
+      if (config.auth === 'api-key') throw new Error('Set OPENAI_API_KEY for Codex API-key mode.');
       try { await copyFile(join(originalHome, 'auth.json'), join(home, 'auth.json')); await chmod(join(home, 'auth.json'), 0o600); }
       catch { throw new Error('Codex authentication unavailable. Run codex login (file-backed credentials) or set OPENAI_API_KEY.'); }
     }

@@ -1,6 +1,6 @@
 # Automatic hosted reviews
 
-M4 uses the existing CLI on GitHub-hosted Linux runners. The repository owner chose API-key secrets; local browser sessions are not copied to CI. The original coding agent can remain local or cloud based. This workflow posts reviews only; author assessment and human decisions are M5.
+This is the optional API-key deployment on GitHub-hosted Linux runners. On 2026-10-13 the owner chose local worker + official CLI to use existing subscription logins instead; see `WORKER.md`. Keep hosted inference disabled unless separate API billing is desired. Local browser sessions are not copied to CI. This workflow posts reviews only; author assessment and human decisions are M5.
 
 ## Setup
 

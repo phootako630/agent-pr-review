@@ -8,6 +8,8 @@ import { resolveCodex, run } from './process.js';
 import { readJson, review } from './review.js';
 import { publish } from './publish.js';
 import { actionsGate, actionsReview, actionsPublish, dispatchReview } from './actions.js';
+import { runWorker, workerStatus } from './worker.js';
+import { readBrowserCredentials } from './browser-auth.js';
 
 const program = new Command().name('pr-review').description('Independent local PR review reports.').version(VERSION);
 const controller = new AbortController();
@@ -30,14 +32,31 @@ actions.command('publish').option('--report <path>', 'Verified report artifact',
   .action(async o => actionsPublish({ reportDirectory: o.report, outputDirectory: o.output, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]) }));
 
 function integer(value: string): number {
-  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new InvalidArgumentError('Expected a positive integer.');
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) throw new InvalidArgumentError('Expected a positive integer.');
   return Number(value);
 }
+
+const worker = program.command('worker').description('Local browser-authenticated PR watcher; no API-key fallback');
+worker.command('start').argument('<repository>', 'OWNER/REPO')
+  .option('--config <path>', 'Trusted local worker JSON', 'examples/worker.browser.json')
+  .option('--state-dir <path>', 'Persistent private local state', '.pr-review/worker')
+  .option('--pr <number>', 'Limit to one PR', integer)
+  .option('--once', 'Poll once and wait for up to maxActivePrs jobs')
+  .option('--preview', 'Run reviewers and revalidate publication without posting comments')
+  .option('--retry-failed', 'Explicitly retry unfinished current revisions; reuse any successful saved report')
+  .option('--resume-providers', 'Clear provider pauses after checking login and subscription usage')
+  .action(async (repository, o) => {
+    const result = await runWorker({ repository, configPath: o.config, stateDirectory: o.stateDir, pr: o.pr, once: o.once, preview: o.preview,
+      retryFailed: o.retryFailed, resumeProviders: o.resumeProviders, signal: controller.signal });
+    process.exitCode = controller.signal.aborted ? 130 : result.unfinished ? 1 : result.pausedProviders.length ? 2 : 0;
+  });
+worker.command('status').argument('<repository>').option('--state-dir <path>', 'Persistent local state', '.pr-review/worker')
+  .action(async (repository, o) => workerStatus(repository, o.stateDir));
 
 program.command('doctor').description('Check local tools and authentication without calling a model')
   .option('--json', 'Print structured diagnostics')
   .option('--reviewer <name>', 'Provider to check: codex, claude, grok', 'codex')
-  .option('--auth <mode>', 'Claude/Grok authentication: api-key or browser')
+  .option('--auth <mode>', 'Authentication: api-key or browser')
   .action(async options => {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]);
     const checks: { name: string; ok: boolean; detail: string }[] = [];
@@ -52,6 +71,13 @@ program.command('doctor').description('Check local tools and authentication with
       }],
       ['provider-auth', async () => {
         if (options.auth && !['api-key', 'browser'].includes(options.auth)) throw new Error('Choose api-key or browser auth.');
+        if (options.auth === 'browser' && ['codex', 'claude', 'grok'].includes(options.reviewer)) {
+          await readBrowserCredentials(options.reviewer); return 'Official CLI browser credential present; API-key fallback disabled. Account usage checked by provider during review.';
+        }
+        if (options.reviewer === 'codex' && options.auth === 'api-key') {
+          if (!process.env.OPENAI_API_KEY) throw new Error('Configured OPENAI_API_KEY is missing.');
+          return 'API key present; validity checked during review';
+        }
         if (options.reviewer === 'claude' || options.reviewer === 'grok') {
           const key = options.reviewer === 'claude' ? process.env.ANTHROPIC_API_KEY : process.env.XAI_API_KEY;
           if (options.auth !== 'browser' && key) return 'API key present; validity checked during review';
@@ -93,7 +119,7 @@ program.command('review').argument('[pr-url]', 'https://github.com/owner/repo/pu
   .option('--config <path>', 'JSON configuration file')
   .option('--reviewer <name>', 'codex, claude, grok, or fake (single reviewer)')
   .option('--model <id>', 'Explicit model ID (single reviewer); use config reviewers for multiple')
-  .option('--auth <mode>', 'Claude/Grok authentication: api-key or browser')
+  .option('--auth <mode>', 'Authentication: api-key or browser')
   .option('--concurrency <n>', 'Maximum concurrent reviewers, 1–3', integer)
   .option('--provider-timeout-seconds <n>', 'Deadline per reviewer including capability checks', integer)
   .option('--fixture <path>', 'Offline snapshot JSON; requires fake reviewer')

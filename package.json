@@ -14,7 +14,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "node --import tsx --test tests/*.test.ts",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "worker": "node tools/run-worker.mjs"
   },
   "dependencies": {
     "@octokit/rest": "22.0.1",

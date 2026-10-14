@@ -18,6 +18,7 @@ export async function readJson(path: string, maxBytes = 8_000_000): Promise<unkn
 export async function review(options: {
   url?: string; fixture?: string; output: string; config: Config; signal?: AbortSignal;
   progress?: (message: string) => void; capturedSnapshot?: import('./contracts.js').Snapshot;
+  runId?: string; pausedProviders?: Partial<Record<import('./contracts.js').Reviewer['name'], string>>;
 }): Promise<{ directory: string; report: Report }> {
   const config = configSchema.parse(options.config);
   const reviewers = selectedReviewers(config);
@@ -26,7 +27,8 @@ export async function review(options: {
     if (!simulation || options.url) throw new Error('--fixture requires --reviewer fake and no PR URL.');
   } else if (!options.url) throw new Error('Provide a PR URL or use --reviewer fake --fixture <snapshot.json>.');
   else parsePrUrl(options.url);
-  const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
+  const runId = options.runId ?? `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
+  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(runId)) throw new Error('Invalid internal review run identifier.');
   const directory = resolve(options.output, runId);
   await mkdir(directory, { recursive: true });
   const started = Date.now();
@@ -48,7 +50,7 @@ export async function review(options: {
     report.promptHash = hash(prompt);
     if (!report.snapshot.files.some(f => f.kind === 'change')) throw new Error('No reviewable changed text files remain in the supplied context. See coverage exclusions.');
     if (signal.aborted) throw new Error('Review cancelled or deadline exceeded.');
-    report.providers = await runReviewers({ reviewers, config, snapshot: report.snapshot, prompt, directory, signal, progress: options.progress });
+    report.providers = await runReviewers({ reviewers, config, snapshot: report.snapshot, prompt, directory, signal, progress: options.progress, pausedProviders: options.pausedProviders });
     const successful = report.providers.filter(p => p.result !== null);
     if (successful.length) report.result = {
       summary: successful.map(p => `${p.name}: ${p.result!.summary}`).join('\n'),
