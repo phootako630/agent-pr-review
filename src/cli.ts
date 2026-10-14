@@ -10,6 +10,7 @@ import { publish } from './publish.js';
 import { actionsGate, actionsReview, actionsPublish, dispatchReview } from './actions.js';
 import { runWorker, workerStatus } from './worker.js';
 import { readBrowserCredentials } from './browser-auth.js';
+import { loadEvaluation, runEvaluation, evaluationWorksheet, scoreEvaluation } from './evaluation.js';
 
 const program = new Command().name('pr-review').description('Independent local PR review reports.').version(VERSION);
 const controller = new AbortController();
@@ -35,6 +36,33 @@ function integer(value: string): number {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) throw new InvalidArgumentError('Expected a positive integer.');
   return Number(value);
 }
+
+const evaluation = program.command('eval').description('Local fixed-input evaluations; never publishes comments');
+evaluation.command('validate').argument('<manifest>').action(async manifest => {
+  const dataset = await loadEvaluation(manifest, true);
+  console.log(`${dataset.manifest.datasetId}: ${dataset.manifest.cases.length} cases; inputs, label hashes and splits verified. No model calls.`);
+});
+evaluation.command('run').argument('<manifest>')
+  .requiredOption('--config <path>', 'Explicit browser-only review configuration')
+  .requiredOption('--output <directory>', 'Private experiment directory')
+  .option('--split <name>', 'dev or test; test is reserved for a frozen strategy', 'dev')
+  .option('--prompt <mode>', 'current or rubric', 'rubric')
+  .option('--limit <n>', 'Maximum selected cases', integer, 1)
+  .option('--max-calls <n>', 'Maximum new provider invocations for this command', integer, 1)
+  .option('--resume', 'Reuse finished cases of exactly the same experiment; never retries interrupted calls')
+  .action(async (manifest, o) => {
+    if (!['dev', 'test'].includes(o.split) || !['current', 'rubric'].includes(o.prompt)) throw new Error('Choose dev/test split and current/rubric prompt.');
+    const result = await runEvaluation({ manifestPath: manifest, config: configSchema.parse(await readJson(o.config, 64_000)), split: o.split,
+      promptMode: o.prompt, output: o.output, limit: o.limit, maxCalls: o.maxCalls, resume: o.resume, signal: controller.signal, progress: m => console.error(m) });
+    console.log(`${result.finished}/${result.selected} cases; ${result.candidates} candidates; scoring pending adjudication.\n${o.output}/run.json`);
+    if (result.failed || result.finished !== result.selected) process.exitCode = controller.signal.aborted ? 130 : 2;
+  });
+evaluation.command('worksheet').argument('<manifest>').requiredOption('--run <path>', 'Evaluation run.json')
+  .requiredOption('--output <directory>', 'New adjudication directory')
+  .action(async (manifest, o) => { await evaluationWorksheet(manifest, o.run, o.output); console.log(`${o.output}/worksheet.json\n${o.output}/judgements.json`); });
+evaluation.command('score').argument('<manifest>').requiredOption('--run <path>', 'Evaluation run.json')
+  .requiredOption('--judgements <path>', 'Completed judgement worksheet')
+  .action(async (manifest, o) => console.log(JSON.stringify(await scoreEvaluation(manifest, o.run, o.judgements), null, 2)));
 
 const worker = program.command('worker').description('Local browser-authenticated PR watcher; no API-key fallback');
 worker.command('start').argument('<repository>', 'OWNER/REPO')

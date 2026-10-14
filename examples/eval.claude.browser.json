@@ -1,0 +1,10 @@
+{
+  "reviewer": "claude",
+  "model": "claude-sonnet-5-5",
+  "auth": "browser",
+  "providerTimeoutSeconds": 120,
+  "timeoutSeconds": 150,
+  "maxFiles": 50,
+  "maxFileBytes": 1000000,
+  "maxContextBytes": 160000
+}

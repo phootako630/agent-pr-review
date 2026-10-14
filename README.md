@@ -4,6 +4,8 @@ Automatic PR reviews from Codex, Claude Code, and Grok, followed by author asses
 
 **Status: M4 local worker.** Independent Codex, Claude Code, and Grok reviews run through browser-authenticated official CLIs. A local worker detects ready PRs and new revisions and publishes comment-only GitHub reviews with duplicate protection. API-key hosted execution is optional. Author assessment and human decisions remain M5.
 
+**M4.5 quality pilot:** [local evaluation](docs/EVALUATION.md) adds a pinned 20-case dataset (10 public ReviewBench tasks + 10 synthetic coordinator changes), a versioned rubric, browser-CLI runs, and manual adjudication. Review quality and multi-provider benefit remain hypotheses until measured. Evaluation does not publish GitHub comments.
+
 ## Recommended: local worker + CLI
 
 Use existing subscription logins on your computer. No provider API keys are required; worker configuration rejects API auth and automatic fallback.
