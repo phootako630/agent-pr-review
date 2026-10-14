@@ -6,6 +6,8 @@ Automatic PR reviews from Codex, Claude Code, and Grok, followed by author asses
 
 **M4.5 quality pilot:** [local evaluation](docs/EVALUATION.md) adds a pinned 20-case dataset (10 public ReviewBench tasks + 10 synthetic coordinator changes), a versioned rubric, browser-CLI runs, and manual adjudication. Review quality and multi-provider benefit remain hypotheses until measured. Evaluation does not publish GitHub comments.
 
+The optional [bounded source verifier](docs/VERIFIER.md) checks existing candidates with one source-request round and preserves uncertainty. The [first development pilot](docs/VERIFIER-PILOT.md) retained six supported findings but did not demonstrate a precision gain; annotations are agent-assisted and the test set remains reserved.
+
 ## Recommended: local worker + CLI
 
 Use existing subscription logins on your computer. No provider API keys are required; worker configuration rejects API auth and automatic fallback.

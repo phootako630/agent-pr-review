@@ -1,7 +1,8 @@
 import { chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { outputJsonSchema, resultSchema, type Config, type ReviewResult, type Snapshot } from './contracts.js';
+import { outputJsonSchema, resultSchema, type Config, type ReviewResult, type Snapshot, type StructuredProtocol } from './contracts.js';
+import type { ProviderResponse } from './native-providers.js';
 import { baseEnvironment, failureHint, resolveCodex, run } from './process.js';
 import { readBrowserCredentials } from './browser-auth.js';
 
@@ -60,7 +61,9 @@ export function parseCodexEvents(events: string): { usage: unknown; model: strin
   return { usage, model };
 }
 
-export async function codexReview(prompt: string, config: Config, directory: string, signal: AbortSignal): Promise<{ result: ReviewResult; usage: unknown; model: string | null }> {
+export function codexReview(prompt: string, config: Config, directory: string, signal: AbortSignal): Promise<ProviderResponse>;
+export function codexReview<T>(prompt: string, config: Config, directory: string, signal: AbortSignal, protocol: StructuredProtocol<T>): Promise<ProviderResponse<T>>;
+export async function codexReview<T>(prompt: string, config: Config, directory: string, signal: AbortSignal, protocol?: StructuredProtocol<T>): Promise<ProviderResponse<T | ReviewResult>> {
   const executable = await resolveCodex();
   const sandbox = join(directory, 'provider');
   const home = join(sandbox, 'codex-home');
@@ -69,7 +72,7 @@ export async function codexReview(prompt: string, config: Config, directory: str
   await mkdir(cwd, { recursive: true });
   const schemaPath = join(sandbox, 'schema.json');
   const outputPath = join(sandbox, 'result.json');
-  await writeFile(schemaPath, JSON.stringify(outputJsonSchema), { mode: 0o600 });
+  await writeFile(schemaPath, JSON.stringify(protocol?.jsonSchema ?? outputJsonSchema), { mode: 0o600 });
   const env: NodeJS.ProcessEnv = { ...baseEnvironment(), CODEX_HOME: home };
   const originalHome = process.env.CODEX_HOME ?? join(homedir(), '.codex');
   try {
@@ -101,7 +104,7 @@ export async function codexReview(prompt: string, config: Config, directory: str
     const events = await run(executable.command, args, { cwd, env, input: prompt, signal, maxBytes: 8_000_000 });
     const { usage, model } = parseCodexEvents(events);
     let result;
-    try { result = resultSchema.parse(JSON.parse(await readFile(outputPath, 'utf8'))); }
+    try { result = (protocol?.schema ?? resultSchema).parse(JSON.parse(await readFile(outputPath, 'utf8'))); }
     catch { throw new Error('Codex final output is missing or does not match the review schema.'); }
     return { result, usage, model };
   } finally {

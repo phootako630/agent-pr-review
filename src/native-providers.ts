@@ -2,11 +2,11 @@ import { chmod, copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:f
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
-import { outputJsonSchema, resultSchema, type ReviewResult } from './contracts.js';
+import { outputJsonSchema, resultSchema, type ReviewResult, type StructuredProtocol } from './contracts.js';
 import { baseEnvironment, failureHint, resolveNative, run } from './process.js';
 import { readBrowserCredentials } from './browser-auth.js';
 
-export type ProviderResponse = { result: ReviewResult; model: string | null; usage: unknown };
+export type ProviderResponse<T = ReviewResult> = { result: T; model: string | null; usage: unknown };
 // Complete built-in catalog observed in the pinned Grok 1.0.50 session protocol.
 // An empty --tools argument alone retains the default catalog in this version.
 export const grokDisallowedTools = [
@@ -52,12 +52,14 @@ export async function verifyGrokSession(home: string, prompt: string): Promise<v
   } catch { throw new Error('Grok session used tools or did not record the exact supplied review packet. Output rejected.'); }
 }
 
-export function parseClaudeOutput(output: string): ProviderResponse {
+export function parseClaudeOutput(output: string): ProviderResponse;
+export function parseClaudeOutput<T>(output: string, schema: z.ZodType<T>): ProviderResponse<T>;
+export function parseClaudeOutput<T>(output: string, schema?: z.ZodType<T>): ProviderResponse<T | ReviewResult> {
   let value;
   try { value = JSON.parse(output); } catch { throw new Error('Claude returned invalid JSON.'); }
   const envelope = z.object({
     type: z.literal('result'), subtype: z.literal('success'), is_error: z.literal(false),
-    structured_output: resultSchema, usage: usageSchema.optional(),
+    structured_output: schema ?? resultSchema, usage: usageSchema.optional(),
     total_cost_usd: z.number().nonnegative().optional(),
     modelUsage: z.record(z.string(), z.object({
       inputTokens: z.number().nonnegative().optional(), outputTokens: z.number().nonnegative().optional(),
@@ -74,12 +76,14 @@ export function parseClaudeOutput(output: string): ProviderResponse {
     usage: { tokens: data.usage ?? null, estimatedCostUsd: data.total_cost_usd ?? null, models: data.modelUsage ?? {} } };
 }
 
-export function parseGrokOutput(output: string): ProviderResponse {
+export function parseGrokOutput(output: string): ProviderResponse;
+export function parseGrokOutput<T>(output: string, schema: z.ZodType<T>): ProviderResponse<T>;
+export function parseGrokOutput<T>(output: string, schema?: z.ZodType<T>): ProviderResponse<T | ReviewResult> {
   let value;
   try { value = JSON.parse(output); } catch { throw new Error('Grok returned invalid JSON.'); }
   // Grok's headless JSON protocol is checked against the pinned version and live smoke.
   const envelope = z.object({
-    stopReason: z.literal('end_turn'), structuredOutput: resultSchema, num_turns: z.literal(1),
+    stopReason: z.literal('end_turn'), structuredOutput: schema ?? resultSchema, num_turns: z.literal(1),
     usage: usageSchema.optional(), total_cost_usd: z.number().nonnegative().optional(),
     modelUsage: z.record(z.string(), z.object({
       inputTokens: z.number().nonnegative().optional(), outputTokens: z.number().nonnegative().optional(),
@@ -106,7 +110,9 @@ export async function probeNative(name: 'claude' | 'grok', signal: AbortSignal):
   return version;
 }
 
-export async function nativeReview(name: 'claude' | 'grok', prompt: string, model: string, directory: string, signal: AbortSignal, auth?: 'api-key' | 'browser'): Promise<ProviderResponse> {
+export function nativeReview(name: 'claude' | 'grok', prompt: string, model: string, directory: string, signal: AbortSignal, auth?: 'api-key' | 'browser'): Promise<ProviderResponse>;
+export function nativeReview<T>(name: 'claude' | 'grok', prompt: string, model: string, directory: string, signal: AbortSignal, auth: 'api-key' | 'browser' | undefined, protocol: StructuredProtocol<T>): Promise<ProviderResponse<T>>;
+export async function nativeReview<T>(name: 'claude' | 'grok', prompt: string, model: string, directory: string, signal: AbortSignal, auth?: 'api-key' | 'browser', protocol?: StructuredProtocol<T>): Promise<ProviderResponse<T | ReviewResult>> {
   const exe = await resolveNative(name);
   const sandbox = resolve(directory, 'provider');
   const home = join(sandbox, 'home');
@@ -131,9 +137,9 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
       const output = await run(exe.command, [...exe.prefix, '-p', ...(apiKey ? ['--bare'] : ['--safe-mode', '--restricted', '--setting-sources', '', '--settings', '{"disableAllHooks":true}']), '--model', model,
         '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
         '--no-session-persistence', '--disable-slash-commands', '--no-chrome',
-        '--permission-mode', 'dontAsk', '--output-format', 'json', '--json-schema', JSON.stringify(outputJsonSchema)],
+        '--permission-mode', 'dontAsk', '--output-format', 'json', '--json-schema', JSON.stringify(protocol?.jsonSchema ?? outputJsonSchema)],
       { cwd, env: { ...claudeEnvironment(home), ...(apiKey ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}) }, input: prompt, signal });
-      return parseClaudeOutput(output);
+      return protocol ? parseClaudeOutput(output, protocol.schema) : parseClaudeOutput(output);
     }
     const apiKey = auth !== 'browser' && !!process.env.XAI_API_KEY;
     if (auth === 'api-key' && !apiKey) throw new Error('Set XAI_API_KEY for Grok API-key mode.');
@@ -152,10 +158,10 @@ export async function nativeReview(name: 'claude' | 'grok', prompt: string, mode
     await writeFile(promptPath, prompt, { mode: 0o600 });
     const output = await run(exe.command, ['--no-auto-update', '--verbatim', '--prompt-file', promptPath, '--model', model,
       '--cwd', cwd, '--tools', 'none', '--disallowed-tools', grokDisallowedTools, '--disable-web-search', '--no-subagents', '--no-plan',
-      '--permission-mode', 'dontAsk', '--max-turns', '1', '--output-format', 'json', '--json-schema', JSON.stringify(outputJsonSchema)],
+      '--permission-mode', 'dontAsk', '--max-turns', '1', '--output-format', 'json', '--json-schema', JSON.stringify(protocol?.jsonSchema ?? outputJsonSchema)],
     { cwd, env: { ...env, GROK_HOME: home, GROK_MEMORY: '0', GROK_GOAL: '0', GROK_DISABLE_AUTOUPDATER: '1',
       ...(apiKey ? { XAI_API_KEY: process.env.XAI_API_KEY } : {}) }, signal });
     await verifyGrokSession(home, prompt);
-    return parseGrokOutput(output);
+    return protocol ? parseGrokOutput(output, protocol.schema) : parseGrokOutput(output);
   } finally { await rm(sandbox, { recursive: true, force: true }); }
 }

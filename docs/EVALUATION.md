@@ -1,6 +1,6 @@
 # M4.5: local review evaluation
 
-The experiment asks whether an evidence rubric, a verifier, or multiple providers improves useful defect discovery at a comparable allowance budget. M4's 67 tests established orchestration behavior; they did not establish review quality. This slice supplies fixed data, a baseline runner, and adjudication tools. A verifier and strategy comparison are subsequent experiments, not implemented or demonstrated by this PR.
+The experiment asks whether an evidence rubric, a verifier, or multiple providers improves useful defect discovery at a comparable allowance budget. M4's 67 tests established orchestration behavior; they did not establish review quality. The baseline slice supplies fixed data, a runner, and adjudication tools. An optional [bounded source verifier](VERIFIER.md) now checks saved candidates; the [development pilot](VERIFIER-PILOT.md) records provisional adjudication and retention. Budget-matched strategy comparison remains future work.
 
 ## Dataset and split
 

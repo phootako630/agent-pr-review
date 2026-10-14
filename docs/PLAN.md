@@ -1,6 +1,6 @@
 # Implementation plan
 
-Created: 2026-10-12. Updated: 2026-10-14. Status: M1–M4 merged, including the local browser worker; M4.5 evaluation baseline implemented on `feat/m45-review-evaluation`; verifier experiments and M5 onward remain planned.
+Created: 2026-10-12. Updated: 2026-10-14. Status: M1–M4 and the M4.5 evaluation baseline merged; a bounded source verifier and development adjudication implemented on `feat/m45-bounded-verifier`; budget-matched strategy comparison and M5 onward remain planned.
 
 ## Outcome
 
@@ -111,7 +111,7 @@ Acceptance:
 
 The owner requested evidence for rubric/verification versus mandatory cross-provider review on 2026-10-14. See [evaluation protocol](EVALUATION.md) and [dataset research](EVAL-DATASETS.md). A pinned public-data subset plus original domain fixtures forms a 20-case pilot, with separate inputs/answers and dev/test groups. Local browser CLI evaluation records candidates, coverage, failure and usage telemetry; manual adjudication distinguishes supported, unsupported, duplicate and uncertain findings. No model-quality claim follows from orchestration tests alone.
 
-First slice: data preparation, a repeatable current/rubric baseline, immutable run provenance, explicit invocation budgets, and post-run adjudication tools. A bounded source-aware verifier and budget-matched multi-provider comparison are subsequent experiments. Do not select a winning strategy or proceed to automatic rework from unjudged baseline output. Keep M5 human decisions as planned.
+First slice: data preparation, a repeatable current/rubric baseline, immutable run provenance, explicit invocation budgets, and post-run adjudication tools. Follow-up: an optional [bounded source-aware verifier](VERIFIER.md), separate agent-assisted development judgements, and a [retention pilot](VERIFIER-PILOT.md). A budget-matched multi-provider comparison remains subsequent work. Do not select a winning strategy or proceed to automatic rework from provisional development output. Keep M5 human decisions as planned.
 
 ### M5 — Author assessment and human decision
 
