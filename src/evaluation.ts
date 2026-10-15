@@ -103,7 +103,7 @@ function validateCaseRun(input: unknown, snapshot: Snapshot, config: Config, pro
   if (status !== result.status) throw new Error('Evaluation completion status differs.');
   return result;
 }
-function validateRun(input: unknown, dataset: Awaited<ReturnType<typeof loadEvaluation>>) {
+export function validateEvalRun(input: unknown, dataset: Awaited<ReturnType<typeof loadEvaluation>>) {
   const run = runSchema.parse(input), identity = run.identity;
   if (stableHash(identity) !== run.experimentHash || identity.datasetHash !== stableHash(dataset.manifest) || identity.rubricHash !== stableHash(EVAL_RUBRIC)) throw new Error('Run and dataset identities differ.');
   const selected = dataset.manifest.cases.filter(c => c.split === identity.split).slice(0, identity.cases.length);
@@ -199,7 +199,7 @@ const verdictSchema = z.strictObject({
   candidateId: digest, verdict: z.enum(['unjudged', 'true_positive', 'false_positive', 'duplicate', 'uncertain']),
   matchedIssueIds: z.array(id).max(100), duplicateOf: digest.nullable(), rationale: z.string().max(8000),
 });
-const judgementSchema = z.strictObject({
+export const judgementSchema = z.strictObject({
   schemaVersion: z.literal(1), runHash: digest, evaluator: z.enum(['pending', 'human', 'agent-assisted']),
   cases: z.array(z.strictObject({
     caseId: id, candidates: z.array(verdictSchema),
@@ -209,7 +209,7 @@ const judgementSchema = z.strictObject({
 
 export async function evaluationWorksheet(manifestPath: string, runPath: string, output: string) {
   const dataset = await loadEvaluation(manifestPath, true);
-  const run = validateRun(await readJson(runPath), dataset);
+  const run = validateEvalRun(await readJson(runPath), dataset);
   if (run.identity.datasetHash !== stableHash(dataset.manifest) || stableHash(run.identity) !== run.experimentHash) throw new Error('Run and dataset identities differ.');
   const cases = [];
   for (const result of run.results) {
@@ -229,7 +229,7 @@ export async function evaluationWorksheet(manifestPath: string, runPath: string,
 }
 
 export async function scoreEvaluation(manifestPath: string, runPath: string, judgementsPath: string) {
-  const dataset = await loadEvaluation(manifestPath, true), run = validateRun(await readJson(runPath), dataset);
+  const dataset = await loadEvaluation(manifestPath, true), run = validateEvalRun(await readJson(runPath), dataset);
   const judgements = judgementSchema.parse(await readJson(judgementsPath));
   if (run.identity.datasetHash !== stableHash(dataset.manifest) || stableHash(run.identity) !== run.experimentHash || judgements.runHash !== stableHash(run)) throw new Error('Judgements are stale or belong to another run.');
   if (judgements.cases.length !== run.results.length || new Set(judgements.cases.map(c => c.caseId)).size !== judgements.cases.length) throw new Error('Judgement cases are incomplete or duplicated.');

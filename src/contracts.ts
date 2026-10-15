@@ -85,6 +85,7 @@ export const resultSchema = z.strictObject({
   limitations: z.array(z.string().min(1).max(1000)).max(100),
 });
 export type ReviewResult = z.infer<typeof resultSchema>;
+export type StructuredProtocol<T> = { schema: z.ZodType<T>; jsonSchema: object };
 export const outputJsonSchema = z.toJSONSchema(resultSchema, { target: 'draft-7' });
 
 export function hash(value: unknown): string {

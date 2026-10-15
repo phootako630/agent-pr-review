@@ -11,6 +11,7 @@ import { actionsGate, actionsReview, actionsPublish, dispatchReview } from './ac
 import { runWorker, workerStatus } from './worker.js';
 import { readBrowserCredentials } from './browser-auth.js';
 import { loadEvaluation, runEvaluation, evaluationWorksheet, scoreEvaluation } from './evaluation.js';
+import { compareVerification, verifyEvaluation } from './verification.js';
 
 const program = new Command().name('pr-review').description('Independent local PR review reports.').version(VERSION);
 const controller = new AbortController();
@@ -63,6 +64,21 @@ evaluation.command('worksheet').argument('<manifest>').requiredOption('--run <pa
 evaluation.command('score').argument('<manifest>').requiredOption('--run <path>', 'Evaluation run.json')
   .requiredOption('--judgements <path>', 'Completed judgement worksheet')
   .action(async (manifest, o) => console.log(JSON.stringify(await scoreEvaluation(manifest, o.run, o.judgements), null, 2)));
+evaluation.command('verify').argument('<manifest>').requiredOption('--run <path>', 'Complete baseline run.json')
+  .requiredOption('--config <path>', 'One browser-authenticated verifier')
+  .requiredOption('--output <directory>', 'Private verification experiment directory')
+  .option('--max-calls <n>', 'Worst-case budget: two calls per case with candidates', integer, 2)
+  .option('--resume', 'Reuse completed cases of the same experiment; no failed/interrupted retries')
+  .action(async (manifest, o) => {
+    const result = await verifyEvaluation({ manifestPath: manifest, runPath: o.run, config: configSchema.parse(await readJson(o.config, 64_000)),
+      output: o.output, maxCalls: o.maxCalls, resume: o.resume, signal: controller.signal, progress: m => console.error(m) });
+    console.log(`${result.finished}/${result.selected} verification cases; ${result.newInvocations} new invocations.\n${o.output}/verification.json`);
+    if (result.finished !== result.selected || result.results.some(r => r.status === 'failed')) process.exitCode = controller.signal.aborted ? 130 : 2;
+  });
+evaluation.command('compare-verification').argument('<manifest>').requiredOption('--run <path>', 'Original baseline run.json')
+  .requiredOption('--verification <path>', 'Verification experiment verification.json')
+  .requiredOption('--judgements <path>', 'Baseline adjudication file')
+  .action(async (manifest, o) => console.log(JSON.stringify(await compareVerification(manifest, o.run, o.verification, o.judgements), null, 2)));
 
 const worker = program.command('worker').description('Local browser-authenticated PR watcher; no API-key fallback');
 worker.command('start').argument('<repository>', 'OWNER/REPO')
